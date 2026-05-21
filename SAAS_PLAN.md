@@ -1,14 +1,14 @@
 # Plano: SaaS Checkout + Auth + Multi-tenant — converthair
 
 ## Context
-O sistema está funcionando como instância única (demo login hardcoded, sem auth real, dados sem isolamento por clínica). Com 2 clientes pagantes chegando na semana que vem, é preciso estruturar:
+O sistema está funcionando como instância única (demo login hardcoded, sem auth real, dados sem isolamento por salão). Com 2 clientes pagantes chegando na semana que vem, é preciso estruturar:
 - Auth real com JWT
-- Multi-tenancy por clinicId
+- Multi-tenancy por salonId
 - Checkout Stripe (PIX + cartão, recorrência mensal, R$ 310/mês)
 - Landing page separada com planos e botão de compra
 
 Decisões confirmadas:
-- **Multi-tenant:** um backend Railway + Supabase, dados isolados por clinicId
+- **Multi-tenant:** um backend Railway + Supabase, dados isolados por salonId
 - **Plano único:** R$ 310/mês (sem fidelidade)
 - **WhatsApp:** cada cliente conecta o próprio número
 - **Landing page:** site separado (novo projeto Vite/React)
@@ -19,7 +19,7 @@ Decisões confirmadas:
 
 ### 1. Novas entidades no backend
 
-**`/backend/src/common/entities/clinic.entity.ts`**
+**`/backend/src/common/entities/salon.entity.ts`**
 ```
 id (uuid PK)
 name (varchar)
@@ -35,14 +35,14 @@ createdAt, updatedAt
 id (uuid PK)
 email (varchar, unique)
 passwordHash (varchar)
-clinicId (uuid, FK → clinic.id)
+salonId (uuid, FK → salon.id)
 role: 'owner' | 'admin'
 createdAt, updatedAt
 ```
 
-### 2. Adicionar clinicId em TODAS as entidades existentes
+### 2. Adicionar salonId em TODAS as entidades existentes
 
-Coluna `clinic_id` (uuid, nullable para não quebrar dados existentes) em:
+Coluna `salon_id` (uuid, nullable para não quebrar dados existentes) em:
 - `leads`
 - `conversations`
 - `messages`
@@ -57,14 +57,14 @@ Coluna `clinic_id` (uuid, nullable para não quebrar dados existentes) em:
 
 **`/backend/src/auth/`** com:
 - `auth.module.ts` — imports JwtModule, PassportModule
-- `auth.service.ts` — login, hashPassword, createClinicAndUser
+- `auth.service.ts` — login, hashPassword, createSalonAndUser
 - `auth.controller.ts`:
   - `POST /auth/login` → `{ access_token: string }`
-  - `POST /auth/register` → cria clinic + user (chamado pelo webhook Stripe)
-- `jwt.strategy.ts` — extrai `{ userId, clinicId }` do token
+  - `POST /auth/register` → cria salon + user (chamado pelo webhook Stripe)
+- `jwt.strategy.ts` — extrai `{ userId, salonId }` do token
 - `jwt-auth.guard.ts` — guard aplicado em todos os controllers
 
-JWT payload: `{ sub: userId, clinicId, email }`
+JWT payload: `{ sub: userId, salonId, email }`
 
 **Dependências a instalar:**
 ```bash
@@ -73,20 +73,20 @@ npm install @nestjs/jwt @nestjs/passport passport passport-jwt bcryptjs
 npm install -D @types/passport-jwt @types/bcryptjs
 ```
 
-### 4. Escopo das queries por clinicId
+### 4. Escopo das queries por salonId
 
-Todos os controllers recebem `clinicId` do JWT via `@Request() req` e passam ao service:
+Todos os controllers recebem `salonId` do JWT via `@Request() req` e passam ao service:
 ```typescript
 @Get()
 @UseGuards(JwtAuthGuard)
 findAll(@Request() req) {
-  return this.leadsService.findAll(req.user.clinicId);
+  return this.leadsService.findAll(req.user.salonId);
 }
 ```
 
-Todos os `find()`, `findOne()`, `update()`, `delete()` filtram por `clinicId`.
+Todos os `find()`, `findOne()`, `update()`, `delete()` filtram por `salonId`.
 
-Dados existentes ficam com `clinicId = null` — criar clínica demo com ID fixo e migrar esses registros.
+Dados existentes ficam com `salonId = null` — criar salão demo com ID fixo e migrar esses registros.
 
 ### 5. Módulo Stripe
 
@@ -97,8 +97,8 @@ Dados existentes ficam com `clinicId = null` — criar clínica demo com ID fixo
   - `POST /stripe/webhook` → recebe eventos Stripe (sem JwtAuthGuard)
 
 **Webhook handlers:**
-- `checkout.session.completed` → cria Clinic + User → envia email com credenciais (Resend)
-- `customer.subscription.deleted` → muda status da clínica para `canceled`
+- `checkout.session.completed` → cria Salon + User → envia email com credenciais (Resend)
+- `customer.subscription.deleted` → muda status do salão para `canceled`
 - `invoice.payment_failed` → muda status para `suspended`
 
 **Variáveis de ambiente a adicionar:**
@@ -147,7 +147,7 @@ Cliente clica "Comece agora"
   → POST /stripe/create-checkout (no backend Railway)
   → Redireciona para URL do Stripe Checkout
   → Paga com PIX ou cartão
-  → Stripe dispara webhook → backend cria Clinic + User → envia email
+  → Stripe dispara webhook → backend cria Salon + User → envia email
   → Cliente recebe email com login e senha temporária
   → Cliente acessa app.converthair.com.br e loga
 ```
@@ -160,9 +160,9 @@ Deploy: Vercel
 
 - [ ] Wizard de onboarding pós-pagamento (configurar WhatsApp, personalizar IA)
 - [ ] Portal do assinante: trocar senha, ver status, cancelar pelo próprio painel
-- [ ] Admin panel interno: listar clínicas, MRR, status
+- [ ] Admin panel interno: listar salões, MRR, status
 - [ ] Trial de 7 dias grátis antes de cobrar
-- [ ] Múltiplos usuários por clínica
+- [ ] Múltiplos usuários por salão
 
 ---
 
@@ -170,7 +170,7 @@ Deploy: Vercel
 
 | Ação | Arquivo |
 |------|---------|
-| CRIAR | `backend/src/common/entities/clinic.entity.ts` |
+| CRIAR | `backend/src/common/entities/salon.entity.ts` |
 | CRIAR | `backend/src/common/entities/user.entity.ts` |
 | CRIAR | `backend/src/auth/auth.module.ts` |
 | CRIAR | `backend/src/auth/auth.service.ts` |
@@ -181,9 +181,9 @@ Deploy: Vercel
 | CRIAR | `backend/src/stripe/stripe.service.ts` |
 | CRIAR | `backend/src/stripe/stripe.controller.ts` |
 | MODIFICAR | `backend/src/app.module.ts` |
-| MODIFICAR | Todas as 9 entidades — adicionar `clinicId` |
-| MODIFICAR | Todos os controllers — JwtAuthGuard + clinicId |
-| MODIFICAR | Todos os services — filtrar por clinicId |
+| MODIFICAR | Todas as 9 entidades — adicionar `salonId` |
+| MODIFICAR | Todos os controllers — JwtAuthGuard + salonId |
+| MODIFICAR | Todos os services — filtrar por salonId |
 | MODIFICAR | `backend/src/main.ts` — raw body para /stripe/webhook |
 | MODIFICAR | `frontend/src/services/api.js` — Authorization header |
 | MODIFICAR | `frontend/src/pages/LoginPage.jsx` — auth real |
@@ -196,8 +196,8 @@ Deploy: Vercel
 
 | Dia | Trabalho |
 |-----|---------|
-| 1 | Entidades Clinic + User, módulo Auth (JWT, login endpoint) |
-| 2 | clinicId em todas as entidades, escopo de queries, frontend auth |
+| 1 | Entidades Salon + User, módulo Auth (JWT, login endpoint) |
+| 2 | salonId em todas as entidades, escopo de queries, frontend auth |
 | 3 | Módulo Stripe (checkout + webhook + email credenciais) |
 | 4 | Landing page (conectada ao backend Stripe) |
 | 5 | Testes end-to-end, configurar Stripe produção, deploy |
@@ -207,7 +207,7 @@ Deploy: Vercel
 ## Verificação (como testar)
 
 1. `POST /auth/login` com credenciais → recebe JWT
-2. `GET /leads` com `Authorization: Bearer <token>` → retorna só leads da clínica
-3. Criar sessão Stripe → abrir URL → pagar com cartão de teste 4242... → webhook recebido → clinic + user no banco → email enviado
-4. Logar no app com as credenciais do email → ver Kanban vazio (nova clínica)
-5. Criar 2 clínicas e confirmar que leads não vazam entre elas
+2. `GET /leads` com `Authorization: Bearer <token>` → retorna só leads do salão
+3. Criar sessão Stripe → abrir URL → pagar com cartão de teste 4242... → webhook recebido → salon + user no banco → email enviado
+4. Logar no app com as credenciais do email → ver Kanban vazio (nova salão)
+5. Criar 2 salãos e confirmar que leads não vazam entre elas

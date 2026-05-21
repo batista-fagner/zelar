@@ -1,0 +1,122 @@
+import { Controller, Get, Param, Patch, Delete, Body, Query, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import { LeadsService } from './leads.service';
+import { LeadsGateway } from './leads.gateway';
+
+@Controller('leads')
+export class LeadsController {
+  constructor(
+    private readonly leadsService: LeadsService,
+    private readonly leadsGateway: LeadsGateway,
+    private readonly configService: ConfigService,
+  ) {}
+
+  @Get()
+  findAll() {
+    return this.leadsService.findAll();
+  }
+
+  @Get('deleted')
+  findDeleted() {
+    return this.leadsService.findDeleted();
+  }
+
+  @Get('dashboard')
+  getDashboard(@Query('period') period?: string) {
+    const valid = ['7', '30', '90', 'all'];
+    const p = valid.includes(period ?? '') ? period : 'all';
+    return this.leadsService.getDashboard(p as any);
+  }
+
+  @Get('deleted/:id')
+  findOneDeleted(@Param('id') id: string) {
+    return this.leadsService.findOneDeleted(id);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.leadsService.findOne(id);
+  }
+
+  @Get(':id/conversation')
+  getConversation(@Param('id') id: string) {
+    return this.leadsService.getConversationWithMessages(id);
+  }
+
+  @Get(':id/history')
+  getHistory(@Param('id') id: string) {
+    return this.leadsService.getHistory(id);
+  }
+
+  @Patch(':id/stage')
+  async updateStage(@Param('id') id: string, @Body() body: { stage: string }) {
+    const lead = await this.leadsService.updateStage(id, body.stage as any, 'operator');
+    this.leadsGateway.emitLeadUpdated(lead);
+    return lead;
+  }
+
+  @Patch(':id/name')
+  async updateName(@Param('id') id: string, @Body() body: { name: string }) {
+    const lead = await this.leadsService.updateName(id, body.name);
+    this.leadsGateway.emitLeadUpdated(lead);
+    return lead;
+  }
+
+  @Patch(':id/ai')
+  async toggleAi(@Param('id') id: string, @Body() body: { enabled: boolean }) {
+    await this.leadsService.toggleAi(id, body.enabled);
+    return { ok: true };
+  }
+
+  @Patch(':id/observations')
+  async updateObservations(@Param('id') id: string, @Body() body: { observations: string }) {
+    const lead = await this.leadsService.update(id, { observations: body.observations } as any);
+    this.leadsGateway.emitLeadUpdated(lead);
+    return lead;
+  }
+
+  @Delete(':id')
+  async deleteLead(@Param('id') id: string, @Body() body: { reason?: string } = {}) {
+    await this.leadsService.deleteLead(id, body.reason ?? '');
+    this.leadsGateway.emitLeadDeleted(id);
+    return { ok: true };
+  }
+
+  @Delete(':id/labels/:label')
+  async removeLabel(@Param('id') id: string, @Param('label') label: string) {
+    const lead = await this.leadsService.findOne(id);
+    if (!lead) return { ok: false };
+
+    // Remove do banco
+    const updatedLabels = (lead.labels ?? []).filter((l) => l !== label);
+    await this.leadsService.update(id, { labels: updatedLabels } as any);
+
+    // Remove da uazapi
+    const uazapiUrl = this.configService.get('UAZAPI_BASE_URL') || 'https://labsai.uazapi.com';
+    const uazapiToken = this.configService.get('UAZAPI_TOKEN');
+
+    if (uazapiToken) {
+      try {
+        // Busca ID da etiqueta pelo nome
+        const labelsRes = await axios.get(`${uazapiUrl}/labels`, {
+          headers: { token: uazapiToken, Accept: 'application/json' },
+        });
+        const found = (labelsRes.data || []).find((l: any) => l.name.toLowerCase() === label.toLowerCase());
+        if (found) {
+          await axios.post(
+            `${uazapiUrl}/chat/labels`,
+            { number: lead.phone, remove_labelid: found.id },
+            { headers: { token: uazapiToken, 'Content-Type': 'application/json' } },
+          );
+        }
+      } catch {
+        // Falha silenciosa — etiqueta já foi removida do banco
+      }
+    }
+
+    const updatedLead = await this.leadsService.findOne(id);
+    this.leadsGateway.emitLeadUpdated(updatedLead);
+    return updatedLead;
+  }
+}

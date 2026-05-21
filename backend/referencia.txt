@@ -1,0 +1,445 @@
+Forma simples:
+____________
+
+/sender/simple
+Criar nova campanha (Simples)
+Cria uma nova campanha de envio com configurações básicas
+
+Request
+Body
+numbers
+array
+required
+Lista de números para envio
+
+Example: ["5511999999999@s.whatsapp.net"]
+
+type
+string
+required
+Tipo da mensagem
+
+Valores possíveis: text, image, video, videoplay, audio, document, contact, location, list, button, poll, carousel
+folder
+string
+Nome da campanha de envio
+
+Example: "Campanha Janeiro"
+
+delayMin
+integer
+required
+Delay mínimo entre mensagens em segundos
+
+Example: 10
+
+delayMax
+integer
+required
+Delay máximo entre mensagens em segundos
+
+Example: 30
+
+scheduled_for
+integer
+required
+Timestamp em milissegundos ou minutos a partir de agora para agendamento
+
+Example: 1706198400000
+
+info
+string
+Informações adicionais sobre a campanha
+
+delay
+integer
+Delay fixo entre mensagens (opcional)
+
+mentions
+string
+Menções na mensagem em formato JSON
+
+text
+string
+Texto da mensagem
+
+linkPreview
+boolean
+Habilitar preview de links em mensagens de texto. O preview será gerado automaticamente a partir da URL contida no texto.
+
+linkPreviewTitle
+string
+Título personalizado para o preview do link (opcional)
+
+linkPreviewDescription
+string
+Descrição personalizada para o preview do link (opcional)
+
+linkPreviewImage
+string
+URL ou dados base64 da imagem para o preview do link (opcional)
+
+linkPreviewLarge
+boolean
+Se deve usar preview grande ou pequeno (opcional, padrão false)
+
+file
+string
+URL da mídia ou arquivo (quando type é image, video, audio, document, etc.)
+
+docName
+string
+Nome do arquivo (quando type é document)
+
+fullName
+string
+Nome completo (quando type é contact)
+
+phoneNumber
+string
+Número do telefone (quando type é contact)
+
+organization
+string
+Organização (quando type é contact)
+
+email
+string
+Email (quando type é contact)
+
+url
+string
+URL (quando type é contact)
+
+latitude
+number
+Latitude (quando type é location)
+
+longitude
+number
+Longitude (quando type é location)
+
+name
+string
+Nome do local (quando type é location)
+
+address
+string
+Endereço (quando type é location)
+
+footerText
+string
+Texto do rodapé (quando type é list, button, poll ou carousel)
+
+buttonText
+string
+Texto do botão (quando type é list, button, poll ou carousel)
+
+listButton
+string
+Texto do botão da lista (quando type é list)
+
+selectableCount
+integer
+Quantidade de opções selecionáveis (quando type é poll)
+
+choices
+array
+Lista de opções (quando type é list, button, poll ou carousel). Para carousel, use formato específico com [texto], {imagem} e botões
+
+imageButton
+string
+URL da imagem para o botão (quando type é button)
+
+Responses
+
+200
+campanha criada com sucesso
+
+400
+Erro nos parâmetros da requisição
+
+401
+Erro de autenticação
+
+409
+Conflito - campanha já existe
+
+500
+Erro interno do servidor
+
+Exemplo:
+
+curl --request POST \
+  --url https://labsai.uazapi.com/sender/simple \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed' \
+  --data '{
+  "numbers": [
+    "5511999999999@s.whatsapp.net"
+  ],
+  "type": "text",
+  "folder": "Campanha Janeiro",
+  "delayMin": 10,
+  "delayMax": 30,
+  "scheduled_for": 1706198400000,
+  "info": "string",
+  "delay": 0,
+  "mentions": "string",
+  "text": "string",
+  "linkPreview": false,
+  "linkPreviewTitle": "string",
+  "linkPreviewDescription": "string",
+  "linkPreviewImage": "string",
+  "linkPreviewLarge": false,
+  "file": "string",
+  "docName": "string",
+  "fullName": "string",
+  "phoneNumber": "string",
+  "organization": "string",
+  "email": "string",
+  "url": "string",
+  "latitude": 0,
+  "longitude": 0,
+  "name": "string",
+  "address": "string",
+  "footerText": "string",
+  "buttonText": "string",
+  "listButton": "string",
+  "selectableCount": 0,
+  "choices": [
+    "string"
+  ],
+  "imageButton": "string"
+}'
+
+_______________________
+
+Forma avançada:
+____________
+
+sender/advanced
+Criar envio em massa avançado
+Cria um novo envio em massa com configurações avançadas, permitindo definir múltiplos destinatários e mensagens com delays personalizados.
+
+Request
+Body
+delayMin
+integer
+Delay mínimo entre mensagens (segundos)
+
+Example: 3
+
+delayMax
+integer
+Delay máximo entre mensagens (segundos)
+
+Example: 6
+
+info
+string
+Descrição ou informação sobre o envio em massa
+
+Example: "Campanha de lançamento"
+
+scheduled_for
+integer
+Timestamp em milissegundos (date unix) ou minutos a partir de agora para agendamento
+
+Example: 1
+
+messages
+array
+required
+Lista de mensagens a serem enviadas
+
+Responses
+
+200
+Mensagens adicionadas à fila com sucesso
+
+400
+Erro nos parâmetros da requisição
+
+401
+Não autorizado - token inválido ou ausente
+
+500
+Erro interno do servidor
+
+Exemplo:
+
+curl --request POST \
+  --url https://labsai.uazapi.com/sender/advanced \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed' \
+  --data '{
+  "delayMin": 3,
+  "delayMax": 6,
+  "info": "teste avançado",
+  "scheduled_for": 1,
+  "messages": [
+    {
+      "number": "5511999999999",
+      "type": "text",
+      "text": "First message"
+    },
+    {
+      "number": "5511999999999",
+      "type": "button",
+      "text": "Promoção Especial!\nConfira nossas ofertas incríveis",
+      "footerText": "Válido até 31/12/2024",
+      "imageButton": "https://exemplo.com/banner-promocao.jpg",
+      "choices": [
+        "Ver Ofertas|https://loja.exemplo.com/ofertas",
+        "Falar com Vendedor|reply:vendedor",
+        "Copiar Cupom|copy:PROMO2024"
+      ]
+    },
+    {
+      "number": "5511999999999",
+      "type": "list",
+      "text": "Escolha sua categoria preferida:",
+      "listButton": "Ver Categorias",
+      "choices": [
+        "[Eletrônicos]",
+        "Smartphones|eletronicos_smartphones",
+        "Notebooks|eletronicos_notebooks",
+        "[Roupas]",
+        "Camisetas|roupas_camisetas",
+        "Sapatos|roupas_sapatos"
+      ]
+    },
+    {
+      "number": "5511999999999",
+      "type": "document",
+      "file": "https://example.com/doc.pdf",
+      "docName": "Documento.pdf"
+    },
+    {
+      "number": "5511999999999",
+      "type": "carousel",
+      "text": "Conheça nossos produtos",
+      "choices": [
+        "[Smartphone XYZ\nO mais avançado smartphone da linha]",
+        "{https://exemplo.com/produto1.jpg}",
+        "Copiar Código|copy:PROD123",
+        "Ver no Site|https://exemplo.com/xyz",
+        "[Notebook ABC\nO notebook ideal para profissionais]",
+        "{https://exemplo.com/produto2.jpg}",
+        "Copiar Código|copy:NOTE456",
+        "Comprar Online|https://exemplo.com/abc"
+      ]
+    }
+  ]
+}'
+_________________________________
+LISTAR CAMPANHAS DE ENVIO
+
+/sender/listfolders
+Listar campanhas de envio
+Retorna as campanhas de envio em massa da instância atual, ordenadas das mais recentes para as mais antigas.
+
+Se a instância não possuir owner associado, a API retorna uma lista vazia.
+
+Parameters
+Query Parameters
+status
+string
+Filtro de status desejado. O backend atual retorna todas as pastas do owner e pode ignorar esse parâmetro dependendo da implementação da fila.
+
+Responses
+
+200
+Lista de campanhas retornada com sucesso
+
+500
+Erro interno do servidor
+
+Exemplo:
+curl --request POST \
+  --url https://labsai.uazapi.com/sender/listmessages \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed' \
+  --data '{
+  "folder_id": "string",
+  "messageStatus": "Scheduled",
+  "limit": 1,
+  "offset": 0
+}'
+
+
+____________________________________
+CONTROLAR CAMPANHA ENVIO EM MASSA:
+
+/sender/edit
+Controlar campanha de envio em massa
+Permite controlar campanhas de envio de mensagens em massa através de diferentes ações:
+
+Ações Disponíveis:
+🛑 stop - Pausar campanha
+
+Pausa uma campanha ativa ou agendada
+Altera o status para "paused"
+Use quando quiser interromper temporariamente o envio
+Mensagens já enviadas não são afetadas
+▶️ continue - Continuar campanha
+
+Retoma uma campanha pausada
+Altera o status para "scheduled"
+Use para continuar o envio após pausar uma campanha
+Não funciona em campanhas já concluídas ("done")
+🗑️ delete - Deletar campanha
+
+Remove completamente a campanha
+Deleta apenas mensagens NÃO ENVIADAS (status "scheduled")
+Mensagens já enviadas são preservadas no histórico
+Operação é executada de forma assíncrona
+Status de Campanhas:
+scheduled: Agendada para envio
+sending: Enviando mensagens
+paused: Pausada pelo usuário
+done: Concluída (não pode ser alterada)
+deleting: Sendo deletada (operação em andamento)
+Request
+Body
+folder_id
+string
+required
+Identificador único da campanha de envio
+
+Example: "folder_123"
+
+action
+string
+required
+Ação a ser executada na campanha:
+
+stop: Pausa a campanha (muda para status "paused")
+continue: Retoma campanha pausada (muda para status "scheduled")
+delete: Remove campanha e mensagens não enviadas (assíncrono)
+Valores possíveis: stop, continue, delete
+Example: "stop"
+
+Responses
+
+200
+Ação realizada com sucesso
+
+400
+Requisição inválida
+
+Exemplo:
+
+curl --request POST \
+  --url https://labsai.uazapi.com/sender/edit \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed' \
+  --data '{
+  "folder_id": "folder_123",
+  "action": "stop"
+}'

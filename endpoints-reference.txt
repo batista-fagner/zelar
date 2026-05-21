@@ -1,0 +1,332 @@
+Conectar instância ao WhatsApp
+
+Inicia o processo de conexão de uma instância ao WhatsApp. Este endpoint:
+
+Requer o token de autenticação da instância
+Recebe o número de telefone associado à conta WhatsApp
+Gera um QR code caso não passe o campo phone
+Ou Gera código de pareamento se passar o o campo phone
+Atualiza o status da instância para "connecting"
+O processo de conexão permanece pendente até que:
+
+O QR code seja escaneado no WhatsApp do celular, ou
+O código de pareamento seja usado no WhatsApp
+Timeout de 2 minutos para QRCode seja atingido ou 5 minutos para o código de pareamento
+Use o endpoint /instance/status para monitorar o progresso da conexão.
+
+Estados possíveis da instância:
+
+disconnected: Desconectado do WhatsApp
+connecting: Em processo de conexão
+connected: Conectado e autenticado
+Sincronização e armazenamento de mensagens:
+
+Todas as mensagens recebidas da Meta durante a sincronização da conexão (leitura do QR code) são enviadas no evento history do webhook.
+As mensagens dos últimos 7 dias são armazenadas no banco de dados e ficam acessíveis pelos endpoints: POST /message/find e POST /chat/find.
+Depois que a instância conecta, todas as mensagens enviadas ou recebidas são armazenadas no banco de dados.
+Mensagens mais antigas do que 7 dias são excluídas durante a madrugada.
+Proxy regional:
+
+No momento, o proxy regional público está disponível para Brasil (br).
+Use GET /proxy-managed/cities?country=br para listar cidades brasileiras.
+Envie proxy_managed_city com o value retornado pela cidade.
+Quando a cidade retornar state, envie também proxy_managed_state com esse valor.
+O backend valida a combinação de país, estado e cidade antes de salvar.
+
+Request
+Body
+phone
+string
+Número de telefone no formato internacional (ex: 5511999999999). Se informado, gera código de pareamento. Se omitido, gera QR code.
+
+Example: "5511999999999"
+
+browser
+string
+Browser usado no ciclo de autenticação/conexão. auto preserva um perfil válido já salvo ou escolhe Safari, Firefox ou Edge para novas conexões.
+
+Valores possíveis: auto, safari, firefox, edge, chrome
+Example: "auto"
+
+systemName
+string
+Sistema/nome exibido no celular em aparelhos conectados. Ajuda a identificar a instância no WhatsApp; para maior estabilidade, recomendamos deixar em branco e usar o valor padrão do navegador escolhido.
+
+Example: "Minha Empresa"
+
+proxy_managed_country
+string
+País desejado para o proxy regional, em ISO alpha-2 minúsculo. No momento, use br.
+
+Example: "br"
+
+proxy_managed_state
+string
+Estado/subdivisão da cidade escolhida. Quando o país/cidade exigir desambiguação, use o campo state retornado por GET /proxy-managed/cities?country=br.
+
+Example: "sp"
+
+proxy_managed_city
+string
+Cidade escolhida para o proxy regional. Use sempre o campo value retornado por GET /proxy-managed/cities.
+
+
+
+
+Código Exemplo de requisição CURL
+
+curl --request POST \
+  --url https://labsai.uazapi.com/instance/connect \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed' \
+  --data '{
+  "phone": "5571992867765"
+}'
+
+
+Retorno
+
+200 sucesso
+
+{
+  "connected": false,
+  "loggedIn": false,
+  "jid": null,
+  "instance": {
+    "id": "i91011ijkl",
+    "token": "abc123xyz",
+    "status": "connected",
+    "paircode": "1234-5678",
+    "qrcode": "data:image/png;base64,iVBORw0KGg...",
+    "name": "Instância Principal",
+    "profileName": "Loja ABC",
+    "profilePicUrl": "https://example.com/profile.jpg",
+    "isBusiness": true,
+    "plataform": "Android",
+    "systemName": "uazapi",
+    "owner": "user@example.com",
+    "lastDisconnect": "2025-01-24T14:00:00Z",
+    "lastDisconnectReason": "Network error",
+    "adminField01": "custom_data",
+    "openai_apikey": "sk-...xyz",
+    "chatbot_enabled": true,
+    "chatbot_ignoreGroups": true,
+    "chatbot_stopConversation": "parar",
+    "chatbot_stopMinutes": 60,
+    "created": "2025-01-24T14:00:00Z",
+    "updated": "2025-01-24T14:30:00Z",
+    "currentPresence": "available"
+  }
+}
+
+401 - token inválido/expirado
+404 instancia nao encontrada
+429 - limite de conexões simultâneas atingido
+500 erro interno do servidor
+
+__________________________________________
+
+Verificar status da instância
+
+
+Retorna o status atual de uma instância, incluindo:
+
+Estado da conexão (disconnected, connecting, connected)
+QR code atualizado (se em processo de conexão)
+Código de pareamento (se disponível)
+Informações da última desconexão
+Detalhes completos da instância
+Este endpoint é particularmente útil para:
+
+Monitorar o progresso da conexão
+Obter QR codes atualizados durante o processo de conexão
+Verificar o estado atual da instância
+Identificar problemas de conexão
+Estados possíveis:
+
+disconnected: Desconectado do WhatsApp
+connecting: Em processo de conexão (aguardando QR code ou código de pareamento)
+connected: Conectado e autenticado com sucesso
+
+Código Exemplo de requisição CURL
+
+curl --request GET \
+  --url https://labsai.uazapi.com/instance/status \
+  --header 'Accept: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed'
+
+RETORNO 200:
+
+{
+  "instance": {
+    "id": "i91011ijkl",
+    "token": "abc123xyz",
+    "status": "connected",
+    "paircode": "1234-5678",
+    "qrcode": "data:image/png;base64,iVBORw0KGg...",
+    "name": "Instância Principal",
+    "profileName": "Loja ABC",
+    "profilePicUrl": "https://example.com/profile.jpg",
+    "isBusiness": true,
+    "plataform": "Android",
+    "systemName": "uazapi",
+    "owner": "user@example.com",
+    "lastDisconnect": "2025-01-24T14:00:00Z",
+    "lastDisconnectReason": "Network error",
+    "adminField01": "custom_data",
+    "openai_apikey": "sk-...xyz",
+    "chatbot_enabled": true,
+    "chatbot_ignoreGroups": true,
+    "chatbot_stopConversation": "parar",
+    "chatbot_stopMinutes": 60,
+    "created": "2025-01-24T14:00:00Z",
+    "updated": "2025-01-24T14:30:00Z",
+    "currentPresence": "available"
+  },
+  "status": {
+    "connected": false,
+    "loggedIn": false,
+    "jid": null
+  }
+}
+
+_____________________________________________
+
+Desconectar instância
+Desconecta a conta do WhatsApp atualmente conectada, encerrando a sessão atual. Esta operação:
+
+Encerra a conexão ativa
+
+Requer novo QR code para reconectar
+
+Diferenças entre desconectar e hibernar:
+
+Desconectar: Encerra completamente a sessão, exigindo novo login
+
+Hibernar: Mantém a sessão ativa, apenas pausa a conexão
+
+Use este endpoint para:
+
+Encerrar completamente uma sessão
+
+Forçar uma nova autenticação
+
+Limpar credenciais da sessão atual
+
+Reiniciar o processo de conexão
+
+Estados possíveis após desconectar:
+
+disconnected: Desconectado do WhatsApp
+
+connecting: Em processo de reconexão (após usar /instance/connect)
+
+
+EXemplo de requisição CURL
+
+curl --request POST \
+  --url https://labsai.uazapi.com/instance/disconnect \
+  --header 'Accept: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed'
+
+Responses
+
+200
+Sucesso
+Response Example
+
+{
+  "instance": {
+    "id": "i91011ijkl",
+    "token": "abc123xyz",
+    "status": "connected",
+    "paircode": "1234-5678",
+    "qrcode": "data:image/png;base64,iVBORw0KGg...",
+    "name": "Instância Principal",
+    "profileName": "Loja ABC",
+    "profilePicUrl": "https://example.com/profile.jpg",
+    "isBusiness": true,
+    "plataform": "Android",
+    "systemName": "uazapi",
+    "owner": "user@example.com",
+    "lastDisconnect": "2025-01-24T14:00:00Z",
+    "lastDisconnectReason": "Network error",
+    "adminField01": "custom_data",
+    "openai_apikey": "sk-...xyz",
+    "chatbot_enabled": true,
+    "chatbot_ignoreGroups": true,
+    "chatbot_stopConversation": "parar",
+    "chatbot_stopMinutes": 60,
+    "created": "2025-01-24T14:00:00Z",
+    "updated": "2025-01-24T14:30:00Z",
+    "currentPresence": "available"
+  },
+  "response": "Disconnected",
+  "info": "The device has been successfully disconnected from WhatsApp. A new QR code will be required for the next connection."
+}
+
+_______________________________________-
+
+/instance/reset
+Reiniciar runtime da instância
+Solicita um reset controlado do runtime da instância atual.
+
+Este endpoint é útil quando a sessão ficou presa, o envio não está progredindo ou a instância precisa forçar uma tentativa de recuperação sem apagar o registro da instância.
+
+Comportamentos possíveis:
+
+inicia um novo reset quando a instância está apta
+informa que um reset já está em andamento
+informa que existe cooldown ativo entre resets
+retorna erro quando a sessão não pode ser recuperada ou quando a política de reconexão bloqueia a operação
+A resposta sempre informa:
+
+instanceId: ID da instância autenticada
+resetting: se há reset em andamento no momento
+queuedRecoveryAttempted: se houve tentativa de recuperação da fila interna
+
+Exemplo de requisição CURL
+
+curl --request POST \
+  --url https://labsai.uazapi.com/instance/reset \
+  --header 'Accept: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed'
+
+Responses
+
+200
+Reset aceito, já em andamento ou em cooldown
+Response Example
+
+{
+  "response": "Instance reset started",
+  "resetting": true,
+  "instanceId": "r183e2ef9597845",
+  "queuedRecoveryAttempted": true
+}
+
+
+_________________________________
+
+
+Deletar instância
+Remove a instância do sistema.
+
+Exemplo de requisição CURL
+
+curl --request DELETE \
+  --url https://labsai.uazapi.com/instance \
+  --header 'Accept: application/json' \
+  --header 'token: 9b4a945e-5ec4-45d1-9c3f-5396078715ed'
+
+Responses
+
+200
+Instância deletada com sucesso
+Response Example
+
+{
+  "response": "Instance Deleted",
+  "info": "O dispositivo foi desconectado com sucesso e a instância foi removida do banco de dados."
+}

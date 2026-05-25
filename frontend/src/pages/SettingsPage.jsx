@@ -51,7 +51,8 @@ export default function SettingsPage() {
   const [creatingInstance, setCreatingInstance] = useState(false)
   const [customPromptSofia, setCustomPromptSofia] = useState('')
   const [customPromptMegaHair, setCustomPromptMegaHair] = useState('')
-  const [defaultPrompts, setDefaultPrompts] = useState({ sofia: '', megahair: '' })
+  const [customPromptClara, setCustomPromptClara] = useState('')
+  const [defaultPrompts, setDefaultPrompts] = useState({ sofia: '', megahair: '', clara: '' })
   const [activePromptTab, setActivePromptTab] = useState('sofia')
   const [savingPrompt, setSavingPrompt] = useState(false)
   const pollingRef = useRef(null)
@@ -78,6 +79,7 @@ export default function SettingsPage() {
       if (data?.agentType) setAgentType(data.agentType)
       if (data?.customPromptSofia != null) setCustomPromptSofia(data.customPromptSofia)
       if (data?.customPromptMegaHair != null) setCustomPromptMegaHair(data.customPromptMegaHair)
+      if (data?.customPromptClara != null) setCustomPromptClara(data.customPromptClara)
       return data
     } catch {
       setInstanceConfig(null)
@@ -93,6 +95,7 @@ export default function SettingsPage() {
       // Só preenche com padrão se ainda não tem customizado
       setCustomPromptSofia(prev => prev || data.sofia)
       setCustomPromptMegaHair(prev => prev || data.megahair)
+      setCustomPromptClara(prev => prev || data.clara)
     } catch { /* silencioso */ }
   }
 
@@ -550,6 +553,7 @@ export default function SettingsPage() {
             {[
               { value: 'fisio', label: 'Fisioterapia', desc: 'Qualificação + agendamento de consulta' },
               { value: 'megahair', label: 'Mega Hair', desc: 'Qualificação + envio de vídeo + venda' },
+              { value: 'zelar', label: 'Zelar (Cuidadores)', desc: 'Família × Cuidador + avaliação gratuita' },
             ].map(opt => (
               <button
                 key={opt.value}
@@ -598,6 +602,7 @@ export default function SettingsPage() {
             {[
               { key: 'sofia', label: 'Sofia (Fisioterapia)' },
               { key: 'megahair', label: 'Lindona (Mega Hair)' },
+              { key: 'clara', label: 'Clara (Zelar)' },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -615,11 +620,12 @@ export default function SettingsPage() {
 
           {/* Textarea */}
           <textarea
-            value={activePromptTab === 'sofia' ? customPromptSofia : customPromptMegaHair}
-            onChange={e => activePromptTab === 'sofia'
-              ? setCustomPromptSofia(e.target.value)
-              : setCustomPromptMegaHair(e.target.value)
-            }
+            value={activePromptTab === 'sofia' ? customPromptSofia : activePromptTab === 'megahair' ? customPromptMegaHair : customPromptClara}
+            onChange={e => {
+              if (activePromptTab === 'sofia') setCustomPromptSofia(e.target.value)
+              else if (activePromptTab === 'megahair') setCustomPromptMegaHair(e.target.value)
+              else setCustomPromptClara(e.target.value)
+            }}
             className="w-full h-80 text-xs font-mono border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700 leading-relaxed"
             placeholder="Digite o prompt da IA aqui..."
             spellCheck={false}
@@ -637,6 +643,7 @@ export default function SettingsPage() {
                     body: JSON.stringify({
                       customPromptSofia: customPromptSofia || null,
                       customPromptMegaHair: customPromptMegaHair || null,
+                      customPromptClara: customPromptClara || null,
                     }),
                   })
                 } finally {
@@ -652,7 +659,8 @@ export default function SettingsPage() {
             <button
               onClick={() => {
                 if (activePromptTab === 'sofia') setCustomPromptSofia(defaultPrompts.sofia)
-                else setCustomPromptMegaHair(defaultPrompts.megahair)
+                else if (activePromptTab === 'megahair') setCustomPromptMegaHair(defaultPrompts.megahair)
+                else setCustomPromptClara(defaultPrompts.clara)
               }}
               className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
             >

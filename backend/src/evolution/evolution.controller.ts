@@ -139,6 +139,8 @@ export class EvolutionController {
       const allMedia = await this.mediaService.listAll();
       const mediaNames = allMedia.map(m => m.name);
       aiResponse = await this.aiService.processMessageMegaHair(lead, combinedText, mediaNames, instanceConfig?.customPromptMegaHair ?? undefined);
+    } else if (agentType === 'zelar') {
+      aiResponse = await this.aiService.processMessageClara(lead, combinedText, instanceConfig?.customPromptClara ?? undefined);
     } else {
       aiResponse = await this.aiService.processMessage(lead, combinedText, instanceConfig?.customPromptSofia ?? undefined);
     }
@@ -257,7 +259,27 @@ export class EvolutionController {
       }
     }
 
-    if (agentType !== 'megahair' && action === 'schedule' && aiResponse.appointmentDateTime) {
+    // Zelar: agendamento interno (tabela appointments) — avaliação gratuita ou conversa com equipe
+    if (agentType === 'zelar' && action === 'schedule' && aiResponse.appointmentDateTime) {
+      try {
+        const startDateTime = this.parseBrazilianDateTime(aiResponse.appointmentDateTime);
+        await this.appointmentsService.create({
+          leadId: lead.id,
+          clientName: lead.name || lead.phone,
+          clientPhone: lead.phone,
+          service: 'avaliacao' as any,
+          value: null,
+          status: 'agendado',
+          startDateTime,
+        });
+        await this.leadsService.update(lead.id, { appointmentAt: startDateTime });
+        this.logger.log(`📅 [ZELAR] Avaliação agendada para ${lead.phone} em ${startDateTime.toISOString()}`);
+      } catch (err: any) {
+        this.logger.error(`Erro ao criar agendamento Zelar: ${err.message}`);
+      }
+    }
+
+    if (agentType !== 'megahair' && agentType !== 'zelar' && action === 'schedule' && aiResponse.appointmentDateTime) {
       const startDateTime = this.parseBrazilianDateTime(aiResponse.appointmentDateTime);
       const { available, conflictingEvent } = await this.calendarService.checkAvailability(startDateTime);
 

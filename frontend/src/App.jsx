@@ -9,6 +9,7 @@ import CalendarPage from './pages/CalendarPage'
 import DeletedLeadsPage from './pages/DeletedLeadsPage'
 import DashboardPage from './pages/DashboardPage'
 import AlertRulesPage from './pages/AlertRulesPage'
+import LandingPage from './pages/LandingPage'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/landing" element={<LandingPage />} />
         <Route
           path="/login"
           element={!loggedIn ? <LoginPage onLogin={() => setLoggedIn(true)} /> : null}

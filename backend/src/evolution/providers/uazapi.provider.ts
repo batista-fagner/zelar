@@ -222,4 +222,25 @@ export class UazapiProvider implements IWhatsAppProvider {
     );
     return response.data;
   }
+
+  async getGlobalWebhook(): Promise<any> {
+    const response = await firstValueFrom(
+      this.http.get(
+        `${this.baseUrl}/globalwebhook`,
+        { headers: { admintoken: this.adminToken } },
+      ),
+    );
+    return response.data;
+  }
+
+  async disableGlobalWebhook(): Promise<any> {
+    const response = await firstValueFrom(
+      this.http.post(
+        `${this.baseUrl}/globalwebhook`,
+        { url: '', events: [], excludeMessages: [] },
+        { headers: { admintoken: this.adminToken } },
+      ),
+    );
+    return response.data;
+  }
 }

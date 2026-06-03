@@ -18,7 +18,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/zelar" element={<LandingPage />} />
         <Route
           path="/login"
           element={!loggedIn ? <LoginPage onLogin={() => setLoggedIn(true)} /> : null}

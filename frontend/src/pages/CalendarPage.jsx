@@ -18,8 +18,10 @@ const statusColor = {
 }
 
 const serviceLabel = {
-  mega_hair:  'Mega Hair',
-  manutencao: 'Manutenção',
+  avaliacao:       'Avaliação',
+  contratacao:     'Contratação',
+  matricula_curso: 'Matrícula curso',
+  outro:           'Outro',
 }
 
 export default function CalendarPage() {
@@ -80,8 +82,8 @@ export default function CalendarPage() {
             <CalIcon className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Calendário — Mega Hair</h1>
-            <p className="text-xs text-gray-500">Agendamentos de aplicação e manutenção</p>
+            <h1 className="text-xl font-bold text-gray-800">Calendário — Zelar</h1>
+            <p className="text-xs text-gray-500">Avaliações e agendamentos da equipe</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

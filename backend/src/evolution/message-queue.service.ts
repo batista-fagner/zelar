@@ -9,7 +9,7 @@ interface QueueEntry {
 @Injectable()
 export class MessageQueueService implements OnModuleDestroy {
   private readonly logger = new Logger(MessageQueueService.name);
-  private readonly DEBOUNCE_MS = 10000;
+  private readonly DEBOUNCE_MS = 5000;
   private readonly queues = new Map<string, QueueEntry>();
 
   enqueue(phone: string, text: string, callback: (combinedText: string) => void): void {

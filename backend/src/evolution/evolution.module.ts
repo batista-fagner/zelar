@@ -20,7 +20,10 @@ import { AppointmentsModule } from '../appointments/appointments.module';
 
 @Module({
   imports: [
-    HttpModule,
+    HttpModule.register({
+      timeout: 30000,
+      maxRedirects: 3,
+    }),
     ConfigModule,
     TypeOrmModule.forFeature([WhatsappConfig]),
     LeadsModule,

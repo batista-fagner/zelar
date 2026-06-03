@@ -3,8 +3,10 @@ import { X, Trash2, Calendar, User, Phone, Tag, DollarSign, FileText } from 'luc
 import { createAppointment, updateAppointment, deleteAppointment } from '../services/api'
 
 const SERVICE_OPTIONS = [
-  { value: 'mega_hair',  label: 'Mega Hair (aplicação)' },
-  { value: 'manutencao', label: 'Manutenção' },
+  { value: 'avaliacao',       label: 'Avaliação gratuita' },
+  { value: 'contratacao',     label: 'Contratação de cuidador' },
+  { value: 'matricula_curso', label: 'Matrícula no curso' },
+  { value: 'outro',           label: 'Outro' },
 ]
 
 const STATUS_OPTIONS = [
@@ -29,7 +31,7 @@ export default function AppointmentModal({ appointment, defaultDate, onClose, on
   const [form, setForm] = useState({
     clientName:    appointment?.clientName ?? '',
     clientPhone:   appointment?.clientPhone ?? '',
-    service:       appointment?.service ?? 'mega_hair',
+    service:       appointment?.service ?? 'avaliacao',
     value:         appointment?.value ?? '',
     status:        appointment?.status ?? 'agendado',
     startDateTime: toDateTimeLocal(appointment?.startDateTime ?? defaultDate ?? new Date()),

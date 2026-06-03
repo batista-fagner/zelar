@@ -1,27 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI, { toFile } from 'openai';
-import { TextToSpeechClient, protos } from '@google-cloud/text-to-speech';
-const { AudioEncoding } = protos.google.cloud.texttospeech.v1;
 
 @Injectable()
 export class AudioService {
   private readonly logger = new Logger(AudioService.name);
   private readonly openai: OpenAI;
-  private readonly ttsClient: TextToSpeechClient;
 
   constructor(private config: ConfigService) {
-    this.openai = new OpenAI({ apiKey: config.get('OPENAI_API_KEY') ?? '' });
-
-    // Google Cloud TTS — usa credenciais do service account
-    const privateKey = config.get('GOOGLE_PRIVATE_KEY') ?? '';
-    const serviceAccountEmail = config.get('GOOGLE_SERVICE_ACCOUNT_EMAIL') ?? '';
-
-    this.ttsClient = new TextToSpeechClient({
-      credentials: {
-        private_key: privateKey,
-        client_email: serviceAccountEmail,
-      },
+    this.openai = new OpenAI({
+      apiKey: config.get('OPENAI_API_KEY') ?? '',
+      timeout: 15000,
+      maxRetries: 1,
     });
   }
 
@@ -48,7 +38,13 @@ export class AudioService {
       '',
     );
 
-    // 2. Datas dd/mm/aaaa → "4 de abril de 2026"
+    // 2. Abreviações comuns do chat → forma falada
+    t = t.replace(/\bvc\b/gi, 'você');
+    t = t.replace(/\bpq\b/gi, 'porque');
+    t = t.replace(/\btbm\b/gi, 'também');
+    t = t.replace(/\bblz\b/gi, 'beleza');
+
+    // 3. Datas dd/mm/aaaa → "4 de abril de 2026"
     t = t.replace(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g, (_, d, m, a) => {
       const mes = this.MESES[parseInt(m, 10) - 1] ?? m;
       return `${parseInt(d, 10)} de ${mes} de ${a}`;
@@ -93,16 +89,6 @@ export class AudioService {
     return t;
   }
 
-  private buildSsml(text: string): string {
-    // Escapa caracteres especiais XML
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    return `<speak><prosody rate="medium" pitch="0st">${escaped}</prosody></speak>`;
-  }
-
   async textToSpeech(text: string): Promise<Buffer> {
     const prepared = this.prepareTextForTts(text);
 
@@ -110,27 +96,27 @@ export class AudioService {
       throw new Error('Texto vazio após limpeza para TTS');
     }
 
-    const ssml = this.buildSsml(prepared);
+    this.logger.debug(`TTS ElevenLabs input: "${prepared}"`);
 
-    this.logger.debug(`TTS original: "${text}"`);
-    this.logger.debug(`TTS SSML: "${ssml}"`);
+    const voiceId = this.config.get('ELEVENLABS_VOICE_ID') ?? 'PznTnBc8X6pvixs9UkQm';
+    const apiKey = this.config.get('ELEVENLABS_API_KEY') ?? '';
 
-    const request = {
-      input: { ssml },
-      voice: {
-        languageCode: 'pt-BR',
-        name: 'pt-BR-Neural2-C', // C=Marina (feminina)
-      },
-      audioConfig: { audioEncoding: AudioEncoding.MP3 },
-    };
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg' },
+      body: JSON.stringify({ text: prepared, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+    });
+    if (!response.ok) throw new Error(`ElevenLabs TTS error: ${response.status} ${response.statusText}`);
+    return Buffer.from(await response.arrayBuffer());
 
-    const response = await this.ttsClient.synthesizeSpeech(request);
-    const audioContent = response[0]?.audioContent;
-
-    if (!audioContent) {
-      throw new Error('Google Cloud TTS não retornou áudio');
-    }
-
-    return Buffer.from(audioContent as Uint8Array);
+    /* OpenAI TTS (fallback)
+    const mp3Response = await this.openai.audio.speech.create({
+      model: 'tts-1-hd',
+      voice: 'shimmer',
+      input: prepared,
+      response_format: 'mp3',
+    });
+    return Buffer.from(await mp3Response.arrayBuffer());
+    */
   }
 }

@@ -1,0 +1,360 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FLUXOGRAMA COMPLETO — ZELAR (FUNNEL_FAMILIA)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════
+ETAPA 1 — QUALIFICAÇÃO (WhatsApp / Clara)
+═══════════════════════════════════
+
+  [Família envia mensagem]
+           │
+           ▼
+  [Clara identifica FUNNEL_FAMILIA]
+           │
+           ▼
+  [Clara coleta informações do paciente]
+    • Idade aproximada
+    • Consegue se locomover?
+    • Precisa de ajuda no banho?
+    • Usa medicação com ajuda?
+    • Tem diagnóstico importante?
+    • Atendimento em CASA ou HOSPITAL?
+    • Quando quer iniciar?
+           │
+           ▼
+  ┌─────────────────────────────┐
+  │  Local do atendimento?      │
+  └─────────────────────────────┘
+         /        \
+        /          \
+   HOSPITAL      DOMICILIAR
+       │               │
+       ▼               ▼
+  [Envia catálogo   [Analisa complexidade]
+   hospitalar]           │
+       │          ┌──────┴──────────┐
+       │          │                 │
+       │      SIMPLES          TEM qualquer:
+       │          │            • Acamado
+       │          │            • Não anda sozinho
+       │          │            • Não toma banho
+       │          │            • Sonda/oxigênio
+       │          │            • Doença neurológica
+       │          │            • Cuidado 24h
+       │          │            • Urgência
+       │          │                 │
+       │          │            ┌────┴────┐
+       │          │          MÉDIO   COMPLEXO
+       │          │            │        │
+       ▼          ▼            ▼        ▼
+  [Catálogo  [Catálogo   [Catálogo  [Catálogo
+  Hospitalar]  Simples]  Médio]     Complexo]
+
+
+═══════════════════════════════════
+ETAPA 2 — PAGAMENTO (WhatsApp + Dashboard)
+═══════════════════════════════════
+
+  [Clara apresenta catálogo via imagem/mídia]
+           │
+           ▼
+  [Cliente escolhe o serviço]
+           │
+           ▼
+  [Clara avisa: "Após confirmar pagamento
+   apresentamos os cuidadores disponíveis"]
+           │
+           ▼
+  [Clara envia link/instruções de pagamento]
+           │
+           ▼
+  [Lead vai para coluna "Aguardando Pagamento"
+   no Kanban do Dashboard — Operador vê]
+           │
+           ▼
+  ┌──────────────────────────────────────┐
+  │  OPERADOR (Dashboard)                │
+  │  Confirma pagamento recebido         │
+  │  → Clica botão "Confirmar Pagamento" │
+  └──────────────────────────────────────┘
+           │
+           ▼
+  [Sistema registra pagamento confirmado]
+           │
+           ▼
+  [Clara envia para a família:
+   "Pagamento confirmado ✅
+    Verificando cuidadores disponíveis..."]
+
+
+═══════════════════════════════════
+ETAPA 3 — CORRIDA DOS CUIDADORES (WhatsApp automático)
+═══════════════════════════════════
+
+  [Sistema busca cuidadores compatíveis no banco]
+  (filtra por: nível de complexidade + disponibilidade)
+           │
+           ▼
+  [Sistema envia WhatsApp para TODOS os
+   cuidadores compatíveis simultaneamente]
+
+   Mensagem enviada ao cuidador:
+   ┌────────────────────────────────────┐
+   │ Nova oportunidade disponível! 🔔   │
+   │                                    │
+   │ Paciente: [perfil resumido]        │
+   │ Tipo: [Simples/Médio/Complexo]    │
+   │ Local: [endereço/bairro]           │
+   │ Início: [data]                     │
+   │                                    │
+   │ Responda ACEITO para confirmar.    │
+   │ Primeiro a responder fica com a    │
+   │ vaga!                              │
+   └────────────────────────────────────┘
+           │
+           ▼
+  ┌────────────────────────────────────┐
+  │  Webhook recebe resposta           │
+  │  Identifica: número = cuidador?    │
+  └────────────────────────────────────┘
+           │
+    ┌──────┴──────┐
+    │             │
+  SIM           NÃO
+    │             │
+    ▼          [Ignora / processa
+  [Primeiro    como lead normal]
+  a responder
+  "ACEITO"]
+    │
+    ▼
+  [Sistema bloqueia a vaga]
+    │
+    ├──► [Cuidador vencedor recebe:]
+    │    "Parabéns! Você foi selecionado.
+    │     Aguarde o contato da família."
+    │
+    └──► [Demais cuidadores recebem:]
+         "Obrigado pelo interesse!
+          Esta vaga já foi preenchida."
+
+
+═══════════════════════════════════
+ETAPA 4 — COMUNICAÇÃO PARA A FAMÍLIA (WhatsApp / Clara)
+═══════════════════════════════════
+
+  [Clara retorna para a família automaticamente]
+           │
+           ▼
+  [Clara informa o cuidador designado]
+   "Pagamento confirmado ✅
+    O cuidador(a) [NOME] foi designado
+    para o seu atendimento e já está
+    ciente. Em breve entraremos em contato
+    para alinhar os detalhes 😊"
+
+  ⚠️ Família NÃO escolhe — cuidador é
+     atribuído automaticamente (primeiro
+     a aceitar na corrida)
+           │
+           ▼
+  [Clara pergunta quem vai preencher o cadastro]
+   "Preenchar a ficha
+    cadastral do paciente"
+           │
+           ▼
+  [Clara envia o link do formulário]
+   "Perfeito! Segue o link pra preencher:
+    [link Google Form]
+    Assim que finalizar, já recebo aqui
+    automaticamente 😊"
+           │
+           ▼
+  ┌─────────────────────────────────────────┐
+  │  Google Form enviado                    │
+  │  → Google Apps Script detecta envio    │
+  │  → POST automático para o backend      │
+  │    endpoint: POST /webhooks/form-submit │
+  │  → Backend identifica o lead pelo      │
+  │    telefone (campo oculto no form)     │
+  └─────────────────────────────────────────┘
+           │
+           ▼
+  [Clara recebe notificação automática
+   e envia para a família SEM precisar
+   que ela confirme manualmente]
+   "Recebemos o cadastro, obrigada! ✅
+    Tudo certo por aqui."
+           │
+           ▼
+  [Lead vai para coluna "Serviço Ativo" no Kanban]
+
+
+═══════════════════════════════════
+ETAPA 5 — PRÉ-ATENDIMENTO (Notificação agendada)
+═══════════════════════════════════
+
+  [Sistema agenda notificação para 1h antes]
+           │
+           ▼
+  [No horário: Clara envia para a família]
+   "Oi 😊 daqui a 1 hora o cuidador(a)
+    [NOME] estará no local, conforme combinado.
+    Qualquer coisa, estou por aqui."
+
+
+═══════════════════════════════════
+ETAPA 6 — PÓS-ATENDIMENTO (Pesquisa de satisfação)
+═══════════════════════════════════
+
+  [Sistema agenda mensagem para após o término]
+           │
+           ▼
+  [Clara envia pesquisa de satisfação]
+   "Oi 😊 tudo bem?
+    Como foi sua experiência com o cuidador?
+    [link Google Form satisfação]"
+           │
+           ▼
+  [Família responde → Feedback registrado]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FLUXOGRAMA — ZELAR (FUNNEL_CUIDADOR)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════
+ETAPA 1 — QUALIFICAÇÃO (WhatsApp / Clara)
+═══════════════════════════════════
+
+  [Pessoa envia mensagem com interesse em ser cuidador]
+           │
+           ▼
+  [Clara identifica FUNNEL_CUIDADOR]
+           │
+           ▼
+  [Clara coleta informações do candidato]
+    • Já tem experiência com cuidados?
+      (em família, hospital ou outro contexto)
+    • Qual sua disponibilidade de horários?
+      (manhã / tarde / noite)
+    • Tem interesse em trabalhar em qual região?
+           │
+           ▼
+  [Clara apresenta o curso da Zelar]
+   "Nossa capacitação é de 2 dias, presencial.
+    Ao concluir, você entra direto para a nossa
+    base de cuidadores e começa a receber
+    oportunidades de trabalho 😊"
+
+
+═══════════════════════════════════
+ETAPA 2 — INSCRIÇÃO (WhatsApp + Google Form)
+═══════════════════════════════════
+
+  [Clara envia form de inscrição]
+   "Para garantir sua vaga, preencha
+    o formulário de inscrição:
+    [link Google Form inscrição]
+    Assim que finalizar, já recebo
+    automaticamente aqui 😊"
+           │
+           ▼
+  ┌─────────────────────────────────────────┐
+  │  Google Form enviado                    │
+  │  → Google Apps Script detecta envio    │
+  │  → POST automático para o backend      │
+  │    endpoint: POST /webhooks/form-submit │
+  │  → Backend identifica candidato        │
+  │    pelo telefone (campo oculto)        │
+  └─────────────────────────────────────────┘
+           │
+           ▼
+  [Clara confirma recebimento automaticamente]
+   "Inscrição recebida ✅
+    Em breve nossa equipe entrará em contato
+    com as informações do curso. Até lá! 😊"
+           │
+           ▼
+  [Operador recebe notificação no dashboard]
+  [Candidato aparece no Kanban como
+   "Inscrito no Curso"]
+
+
+═══════════════════════════════════
+ETAPA 3 — PÓS-CURSO (Operador + Sistema)
+═══════════════════════════════════
+
+  [Candidato conclui o curso de 2 dias]
+           │
+           ▼
+  [Operador cadastra manualmente o novo
+   cuidador no sistema via dashboard]
+    • Nome completo
+    • Telefone (já vem do lead)
+    • Especialidades adquiridas
+    • Disponibilidade de horários
+    • Região de atuação
+           │
+           ▼
+  [Cuidador entra na base ativa da Zelar]
+  [Fica disponível para receber oportunidades
+   via sistema de corrida do FUNNEL_FAMILIA]
+           │
+           ▼
+  [Clara envia mensagem de boas-vindas ao cuidador]
+   "Parabéns! 🎉 Você agora faz parte da
+    equipe Zelar. Quando surgir uma
+    oportunidade compatível com seu perfil,
+    você receberá uma mensagem aqui.
+    Bem-vindo(a)!"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONEXÃO ENTRE OS DOIS FUNIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FUNNEL_CUIDADOR ──────────────► Banco de Cuidadores
+  (capacitação)                        │
+                                       │ alimenta
+                                       ▼
+  FUNNEL_FAMILIA  ──────────────► Sistema de Corrida
+  (contratação)                   (busca nesse banco)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUMO DAS ENTIDADES DO BANCO DE DADOS NECESSÁRIAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+leads (já existe)
+  + nivel_complexidade: 'simples' | 'médio' | 'complexo' | 'hospitalar'
+  + status_pagamento: 'pendente' | 'confirmado'
+  + cuidador_id (FK)
+  + funil: 'familia' | 'cuidador'
+
+cuidadores (NOVA — alimentada pelo FUNNEL_CUIDADOR)
+  id, nome, telefone, especialidades[], disponibilidade[],
+  regiao, ativo, cadastrado_em
+
+corridas (NOVA)
+  id, lead_id, status: 'aberta' | 'encerrada',
+  cuidador_vencedor_id, abertura_em, encerramento_em
+
+notificacoes_agendadas (NOVA)
+  id, lead_id, tipo: 'pre_atendimento' | 'pos_atendimento',
+  enviar_em (datetime), enviado: boolean
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PONTOS DE INTERAÇÃO POR ATOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FAMÍLIA:        100% WhatsApp (Clara responde)
+CANDIDATOS:     100% WhatsApp (Clara responde) + Google Form
+CUIDADORES:     100% WhatsApp (sistema envia + captura ACEITO)
+OPERADOR:       Dashboard web (confirmar pagamento, cadastrar
+                cuidadores pós-curso, ver Kanban)
+SISTEMA:        Automático (corrida, agendamentos Google Calendar,
+                pós-atendimento, notificações)
+GOOGLE CALENDAR: 1 calendário compartilhado da Zelar — evento
+                criado automaticamente quando cuidador é atribuído

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UazapiProvider } from './providers/uazapi.provider';
 import { WhatsappConfigService } from './whatsapp-config.service';
@@ -22,6 +22,16 @@ export class AdminController {
   @Get('instances')
   async listInstances() {
     return this.whatsappConfigService.listAll();
+  }
+
+  @Get('global-webhook')
+  async getGlobalWebhook() {
+    return this.uazapi.getGlobalWebhook();
+  }
+
+  @Delete('global-webhook')
+  async disableGlobalWebhook() {
+    return this.uazapi.disableGlobalWebhook();
   }
 
   @Post('global-webhook')

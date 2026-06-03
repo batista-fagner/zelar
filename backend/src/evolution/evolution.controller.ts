@@ -40,6 +40,15 @@ export class EvolutionController {
   async handleUazapiWebhook(@Body() body: any) {
     if (body.EventType !== 'messages') return { ok: true };
 
+    // Validação de instância: rejeita mensagens de instâncias não configuradas neste backend
+    const instanceConfig = await this.whatsappConfigService.get();
+    const expectedToken = instanceConfig?.instanceToken;
+    const bodyToken: string = body.token ?? body.instanceToken ?? body.instance?.token ?? '';
+    if (expectedToken && bodyToken && bodyToken !== expectedToken) {
+      this.logger.warn(`Webhook ignorado — instância desconhecida (token=${bodyToken.substring(0, 8)}...)`);
+      return { ok: true };
+    }
+
     const message = body.message;
     if (!message || message.fromMe || message.isGroup || message.wasSentByApi) return { ok: true };
 
@@ -87,10 +96,21 @@ export class EvolutionController {
       this.processMessage(phone, combinedText, messageId).catch((err) => {
         this.logger.error(`❌ [ERRO AO PROCESSAR] ${phone}: ${err.message}`);
         this.logger.error(`❌ [ERRO AO PROCESSAR] Stack: ${err.stack}`);
+        this.sendFallback(phone);
       });
     });
 
     return { ok: true };
+  }
+
+  private async sendFallback(phone: string) {
+    try {
+      const fallbackText = 'Desculpa, tive uma instabilidade aqui. Pode repetir a última mensagem? 😊';
+      await this.evolutionService.sendTextMessage(phone, fallbackText);
+      this.logger.warn(`📤 [FALLBACK] Mensagem de recuperação enviada para ${phone}`);
+    } catch (err) {
+      this.logger.error(`Falha ao enviar fallback para ${phone}: ${err.message}`);
+    }
   }
 
   private async transcribeAndEnqueue(phone: string, message: any, messageId: string) {
@@ -99,9 +119,10 @@ export class EvolutionController {
     this.logger.log(`Áudio transcrito de ${phone}: "${transcribedText}"`);
 
     this.messageQueue.enqueue(phone, transcribedText, (combinedText) => {
-      this.processMessage(phone, combinedText, messageId).catch((err) =>
-        this.logger.error(`Erro ao processar áudio transcrito de ${phone}: ${err.message}`),
-      );
+      this.processMessage(phone, combinedText, messageId).catch((err) => {
+        this.logger.error(`Erro ao processar áudio transcrito de ${phone}: ${err.message}`);
+        this.sendFallback(phone);
+      });
     });
   }
 
@@ -120,11 +141,11 @@ export class EvolutionController {
       return;
     }
 
-    // Lead perdido voltou a falar (sem estar desativado): reinicia como lead_frio
+    // Lead perdido voltou a falar: reinicia como novo_lead
     if (lead.stage === 'perdido') {
-      await this.leadsService.updateStage(lead.id, 'lead_frio' as any, 'system');
-      lead.stage = 'lead_frio' as any;
-      this.logger.log(`Lead ${phone} era perdido — movido para lead_frio ao retornar`);
+      await this.leadsService.updateStage(lead.id, 'novo_lead', 'system');
+      lead.stage = 'novo_lead';
+      this.logger.log(`Lead ${phone} era perdido — movido para novo_lead ao retornar`);
     }
 
     // Mostra "digitando..." enquanto a IA processa
@@ -198,7 +219,7 @@ export class EvolutionController {
     // MegaHair: score definido pelo stage (IA não retorna score confiável)
     if (agentType === 'megahair' && aiResponse.stage) {
       const stageScore: Record<string, number> = {
-        novo_lead: 0, qualificando: 30, lead_quente: 75, agendado: 95, perdido: 5,
+        novo_lead: 0, agendado: 95, convertido: 100, perdido: 5,
       };
       if (stageScore[aiResponse.stage] !== undefined) {
         updateData.qualificationScore = stageScore[aiResponse.stage];
@@ -219,15 +240,19 @@ export class EvolutionController {
       }
     }
 
+    // Fallback: se lead ainda está em novo_lead após receber resposta, avança para em_atendimento
+    if (lead.stage === 'novo_lead' && (!aiResponse.stage || aiResponse.stage === 'novo_lead')) {
+      aiResponse.stage = 'em_atendimento';
+    }
+
     // Salva histórico se o stage mudou — com proteção contra regressão
     if (aiResponse.stage && aiResponse.stage !== lead.stage) {
       const stageOrder: Record<string, number> = {
-        novo_lead: 0, qualificando: 1, lead_quente: 2, lead_frio: 2,
-        agendado: 3, convertido: 4, perdido: 4,
+        novo_lead: 0, em_atendimento: 1, agendado: 2, convertido: 3, perdido: 3,
       };
       const currentOrder = stageOrder[lead.stage] ?? 0;
       const newOrder = stageOrder[aiResponse.stage] ?? 0;
-      const canRegress = ['lead_frio', 'perdido'].includes(aiResponse.stage);
+      const canRegress = ['perdido'].includes(aiResponse.stage);
 
       if (newOrder >= currentOrder || canRegress) {
         await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');

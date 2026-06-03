@@ -1,4 +1,4 @@
-# Plano: SaaS Checkout + Auth + Multi-tenant — converthair
+# Plano: SaaS Checkout + Auth + Multi-tenant — zelar
 
 ## Context
 O sistema está funcionando como instância única (demo login hardcoded, sem auth real, dados sem isolamento por salão). Com 2 clientes pagantes chegando na semana que vem, é preciso estruturar:
@@ -110,9 +110,9 @@ STRIPE_PRICE_ID=price_...     # ID do plano R$310/mês criado no dashboard Strip
 
 **Notas Stripe:**
 - PIX disponível no Stripe Checkout para Brasil — habilitar em Payment Methods no dashboard
-- Criar produto "ConvertHair" + price recorrente R$ 310 BRL/mês
+- Criar produto "Zelar" + price recorrente R$ 310 BRL/mês
 - Stripe raw body: `main.ts` precisa receber raw body na rota `/stripe/webhook`
-- Sucesso: redirecionar para `https://app.converthair.com.br/login` com mensagem
+- Sucesso: redirecionar para `https://app.zelar.com.br/login` com mensagem
 
 ### 6. Frontend — Auth real
 
@@ -131,7 +131,7 @@ STRIPE_PRICE_ID=price_...     # ID do plano R$310/mês criado no dashboard Strip
 
 ### 7. Landing page (novo projeto)
 
-**Localização:** `/Users/fagnerbatista/Documents/planningPsi/converthair-landing/`
+**Localização:** `/Users/fagnerbatista/Documents/planningPsi/zelar-landing/`
 
 Stack: Vite + React + Tailwind
 
@@ -149,7 +149,7 @@ Cliente clica "Comece agora"
   → Paga com PIX ou cartão
   → Stripe dispara webhook → backend cria Salon + User → envia email
   → Cliente recebe email com login e senha temporária
-  → Cliente acessa app.converthair.com.br e loga
+  → Cliente acessa app.zelar.com.br e loga
 ```
 
 Deploy: Vercel
@@ -188,7 +188,7 @@ Deploy: Vercel
 | MODIFICAR | `frontend/src/services/api.js` — Authorization header |
 | MODIFICAR | `frontend/src/pages/LoginPage.jsx` — auth real |
 | MODIFICAR | `frontend/src/App.jsx` — JWT check |
-| CRIAR | `converthair-landing/` — novo projeto |
+| CRIAR | `zelar-landing/` — novo projeto |
 
 ---
 

@@ -32,7 +32,7 @@ export default function Layout({ onLogout }) {
               <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center">
                 <Scissors className="w-3 h-3 text-white" />
               </div>
-              <span className="text-xs font-bold text-gray-800">ConvertHair</span>
+              <span className="text-xs font-bold text-gray-800">Zelar</span>
             </div>
           )}
           <button

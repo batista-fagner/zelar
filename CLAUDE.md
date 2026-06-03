@@ -1,4 +1,4 @@
-# CLAUDE.md — converthair
+# CLAUDE.md — zelar
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -26,12 +26,12 @@ Projeto copiado do fisio-secretary e adaptado para suportar múltiplos agentes. 
 
 ```bash
 # Backend
-cd converthair/backend
+cd zelar/backend
 npm install
 npm run start:dev   # porta 3001
 
 # Frontend
-cd converthair/frontend
+cd zelar/frontend
 npm install
 npm run dev         # porta 5175
 ```
@@ -133,7 +133,7 @@ curl -X DELETE http://localhost:3001/admin/global-webhook
 
 **Separação de webhooks:**
 - fisio-secretary (Railway): `https://kanbam-ia-whatsapp-production.up.railway.app/webhooks/uazapi`
-- converthair/Zelar (ngrok): `https://flashy-nonaesthetical-emory.ngrok-free.app/webhooks/uazapi`
+- zelar/Zelar (ngrok): `https://flashy-nonaesthetical-emory.ngrok-free.app/webhooks/uazapi`
 
 ---
 
@@ -150,7 +150,7 @@ curl -X DELETE http://localhost:3001/admin/global-webhook
 ## Estrutura relevante
 
 ```
-converthair/
+zelar/
 ├── backend/src/
 │   ├── evolution/
 │   │   ├── evolution.controller.ts    ← webhook /webhooks/uazapi + processMessage()

@@ -1,4 +1,4 @@
-# convertHair SaaS — Análise de Custos e Margem
+# zelar SaaS — Análise de Custos e Margem
 ## Referência: R$ 500/mês por cliente
 
 **Data:** 2026-05-11  

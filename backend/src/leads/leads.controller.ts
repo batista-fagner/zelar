@@ -1,8 +1,11 @@
-import { Controller, Get, Param, Patch, Delete, Body, Query, Inject } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Delete, Body, Query, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { LeadsService } from './leads.service';
 import { LeadsGateway } from './leads.gateway';
+import { EvolutionService } from '../evolution/evolution.service';
+import { WhatsappConfigService } from '../evolution/whatsapp-config.service';
+import { AiService } from '../ai/ai.service';
 
 @Controller('leads')
 export class LeadsController {
@@ -10,6 +13,9 @@ export class LeadsController {
     private readonly leadsService: LeadsService,
     private readonly leadsGateway: LeadsGateway,
     private readonly configService: ConfigService,
+    private readonly evolutionService: EvolutionService,
+    private readonly whatsappConfigService: WhatsappConfigService,
+    private readonly aiService: AiService,
   ) {}
 
   @Get()
@@ -66,6 +72,38 @@ export class LeadsController {
   @Patch(':id/ai')
   async toggleAi(@Param('id') id: string, @Body() body: { enabled: boolean }) {
     await this.leadsService.toggleAi(id, body.enabled);
+    return { ok: true };
+  }
+
+  @Post(':id/confirm-payment')
+  async confirmPayment(@Param('id') id: string) {
+    const lead = await this.leadsService.findOne(id);
+    if (!lead) return { ok: false, error: 'Lead não encontrado' };
+
+    // Atualiza stage e reativa IA
+    await this.leadsService.updateStage(id, 'pagamento_confirmado' as any, 'operator');
+    await this.leadsService.toggleAi(id, true);
+
+    // LIA retoma automaticamente com a confirmação
+    const instanceConfig = await this.whatsappConfigService.get();
+    const confirmationMsg = '[Sistema] O operador confirmou o pagamento. Retome a conversa enviando o link do formulário de matrícula conforme o PASSO 5.';
+
+    const updatedLead = await this.leadsService.findOne(id);
+    if (!updatedLead) return { ok: false };
+    const aiResponse = await this.aiService.processMessageLia(
+      updatedLead,
+      confirmationMsg,
+      instanceConfig?.customPromptLia ?? undefined,
+    );
+
+    if (aiResponse.success && aiResponse.reply) {
+      await this.evolutionService.sendTextMessage(lead.phone, aiResponse.reply);
+      const context = this.aiService.buildUpdatedContext(updatedLead, confirmationMsg, aiResponse.rawJson!);
+      await this.leadsService.update(id, { aiContext: context } as any);
+    }
+
+    const finalLead = await this.leadsService.findOne(id);
+    this.leadsGateway.emitLeadUpdated(finalLead);
     return { ok: true };
   }
 

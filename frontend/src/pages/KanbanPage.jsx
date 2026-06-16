@@ -63,7 +63,7 @@ export default function KanbanPage() {
 
   const total   = leads.length
   const quentes = leads.filter(l => l.temperature === 'quente').length
-  const agend   = leads.filter(l => l.stage === 'agendado').length
+  const agend   = leads.filter(l => l.stage === 'matriculado').length
 
   if (loading) {
     return (
@@ -83,7 +83,7 @@ export default function KanbanPage() {
             <Stat icon={<Wifi className="w-3.5 h-3.5 text-green-500" />} label="WhatsApp" value="Conectado" valueClass="text-green-600" />
             <Stat icon={<Users className="w-3.5 h-3.5 text-blue-500" />} label="Total de leads" value={total} />
             <Stat icon={<Flame className="w-3.5 h-3.5 text-orange-500" />} label="Quentes" value={quentes} valueClass="text-orange-600" />
-            <Stat icon={<CalendarCheck className="w-3.5 h-3.5 text-teal-500" />} label="Agendados" value={agend} valueClass="text-teal-600" />
+            <Stat icon={<CalendarCheck className="w-3.5 h-3.5 text-teal-500" />} label="Matriculados" value={agend} valueClass="text-teal-600" />
           </div>
         </div>
       </header>

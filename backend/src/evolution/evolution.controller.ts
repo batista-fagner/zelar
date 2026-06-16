@@ -13,6 +13,7 @@ import { CalendarService } from '../calendar/calendar.service';
 import { AudioService } from '../audio/audio.service';
 import { MediaService } from '../media/media.service';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { InfinitpayService } from '../infinitpay/infinitpay.service';
 
 @Controller('webhooks')
 export class EvolutionController {
@@ -34,10 +35,12 @@ export class EvolutionController {
     private readonly mediaService: MediaService,
     private readonly configService: ConfigService,
     private readonly appointmentsService: AppointmentsService,
+    private readonly infinitpayService: InfinitpayService,
   ) {}
 
   @Post('uazapi')
   async handleUazapiWebhook(@Body() body: any) {
+    this.logger.debug(`Webhook recebido — EventType="${body.EventType}", phone="${body.chat?.phone}", fromMe=${body.message?.fromMe}, wasSentByApi=${body.message?.wasSentByApi}, type="${body.message?.type}", text="${String(body.message?.text ?? '').substring(0, 40)}"`);
     if (body.EventType !== 'messages') return { ok: true };
 
     // Validação de instância: rejeita mensagens de instâncias não configuradas neste backend
@@ -50,14 +53,20 @@ export class EvolutionController {
     }
 
     const message = body.message;
-    if (!message || message.fromMe || message.isGroup || message.wasSentByApi) return { ok: true };
+    if (!message) { this.logger.warn('Webhook ignorado — body sem message'); return { ok: true }; }
+    if (message.fromMe) { this.logger.debug(`Webhook ignorado — fromMe: ${message.messageid}`); return { ok: true }; }
+    if (message.isGroup) { this.logger.debug(`Webhook ignorado — isGroup: ${message.messageid}`); return { ok: true }; }
+    if (message.wasSentByApi) { this.logger.debug(`Webhook ignorado — wasSentByApi: ${message.messageid}`); return { ok: true }; }
 
     const rawPhone: string = body.chat?.phone ?? '';
     const phone = rawPhone.replace(/\D/g, '');
     const text: string = message.text;
     const isAudio = message.type === 'media' && ['audio', 'ptt', 'myaudio'].includes(message.mediaType);
 
-    if (!phone || (!text && !isAudio)) return { ok: true };
+    if (!phone || (!text && !isAudio)) {
+      this.logger.warn(`Webhook ignorado — phone="${phone}", text="${text}", type="${message.type}", mediaType="${message.mediaType}"`);
+      return { ok: true };
+    }
 
     if (!phone || (!text && !isAudio)) return { ok: true };
 
@@ -151,21 +160,10 @@ export class EvolutionController {
     // Mostra "digitando..." enquanto a IA processa
     void this.evolutionService.sendTypingIndicator(phone, 5000);
 
-    // Processa com IA — roteia pelo agentType da instância ativa
+    // Processa com LIA (Zelar)
     const instanceConfig = await this.whatsappConfigService.get();
-    const agentType = instanceConfig?.agentType ?? 'fisio';
-
-    let aiResponse;
-    if (agentType === 'megahair') {
-      const allMedia = await this.mediaService.listAll();
-      const mediaNames = allMedia.map(m => m.name);
-      aiResponse = await this.aiService.processMessageMegaHair(lead, combinedText, mediaNames, instanceConfig?.customPromptMegaHair ?? undefined);
-    } else if (agentType === 'zelar') {
-      aiResponse = await this.aiService.processMessageClara(lead, combinedText, instanceConfig?.customPromptClara ?? undefined);
-    } else {
-      aiResponse = await this.aiService.processMessage(lead, combinedText, instanceConfig?.customPromptSofia ?? undefined);
-    }
-    this.logger.log(`IA respondeu [agent=${agentType}] [stage=${aiResponse.stage}]: ${aiResponse.reply}`);
+    const aiResponse = await this.aiService.processMessageLia(lead, combinedText, instanceConfig?.customPromptLia ?? undefined);
+    this.logger.log(`LIA respondeu [stage=${aiResponse.stage}]: ${aiResponse.reply}`);
 
     // CAMADA DE SEGURANÇA: Se shouldIgnore=true, não responder e sair
     if (aiResponse.shouldIgnore === true) {
@@ -208,27 +206,13 @@ export class EvolutionController {
     if (aiResponse.fields) {
       const f = aiResponse.fields;
       if (f.name) updateData.name = f.name;
-      if (f.symptoms) updateData.symptoms = f.symptoms;
-      if (f.urgency) updateData.urgency = f.urgency;
-      if (f.availability) updateData.availability = f.availability;
-      if (f.budget) updateData.budget = f.budget;
       if (f.qualificationScore !== undefined) updateData.qualificationScore = f.qualificationScore;
       if (f.qualificationStep !== undefined) updateData.qualificationStep = f.qualificationStep;
     }
 
-    // MegaHair: score definido pelo stage (IA não retorna score confiável)
-    if (agentType === 'megahair' && aiResponse.stage) {
-      const stageScore: Record<string, number> = {
-        novo_lead: 0, agendado: 95, convertido: 100, perdido: 5,
-      };
-      if (stageScore[aiResponse.stage] !== undefined) {
-        updateData.qualificationScore = stageScore[aiResponse.stage];
-      }
-    }
-
     await this.leadsService.update(lead.id, updateData);
 
-    // Aplica tags para respostas normais (sem shouldIgnore)
+    // Aplica tags
     const normalTags = (aiResponse.tags ?? []).filter(t => t);
     if (normalTags.length > 0) {
       const existingLabels: string[] = lead.labels ?? [];
@@ -240,129 +224,25 @@ export class EvolutionController {
       }
     }
 
-    // Fallback: se lead ainda está em novo_lead após receber resposta, avança para em_atendimento
+    // Fallback: avança de novo_lead para em_atendimento
     if (lead.stage === 'novo_lead' && (!aiResponse.stage || aiResponse.stage === 'novo_lead')) {
       aiResponse.stage = 'em_atendimento';
     }
 
-    // Salva histórico se o stage mudou — com proteção contra regressão
+    // Atualiza stage com proteção contra regressão
     if (aiResponse.stage && aiResponse.stage !== lead.stage) {
       const stageOrder: Record<string, number> = {
-        novo_lead: 0, em_atendimento: 1, agendado: 2, convertido: 3, perdido: 3,
+        novo_lead: 0, em_atendimento: 1, aguardando_pagamento: 2,
+        pagamento_confirmado: 3, matriculado: 4, perdido: 2,
       };
       const currentOrder = stageOrder[lead.stage] ?? 0;
       const newOrder = stageOrder[aiResponse.stage] ?? 0;
-      const canRegress = ['perdido'].includes(aiResponse.stage);
+      const canRegress = aiResponse.stage === 'perdido';
 
       if (newOrder >= currentOrder || canRegress) {
         await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
       } else {
         this.logger.warn(`Stage regressivo bloqueado: ${lead.stage} → ${aiResponse.stage}`);
-      }
-    }
-
-    // Ações de calendário
-    const action = aiResponse.action;
-
-    // MegaHair: agendamento interno (tabela appointments) — não usa Google Calendar
-    if (agentType === 'megahair' && action === 'schedule' && aiResponse.appointmentDateTime) {
-      try {
-        const startDateTime = this.parseBrazilianDateTime(aiResponse.appointmentDateTime);
-        await this.appointmentsService.create({
-          leadId: lead.id,
-          clientName: lead.name || lead.phone,
-          clientPhone: lead.phone,
-          service: aiResponse.appointmentService ?? 'mega_hair',
-          value: aiResponse.appointmentValue ?? null,
-          status: 'agendado',
-          startDateTime,
-        });
-        await this.leadsService.update(lead.id, { appointmentAt: startDateTime });
-        this.logger.log(`📅 [MEGAHAIR] Agendamento criado para ${lead.phone} em ${startDateTime.toISOString()}`);
-      } catch (err: any) {
-        this.logger.error(`Erro ao criar agendamento MegaHair: ${err.message}`);
-      }
-    }
-
-    // Zelar: agendamento interno (tabela appointments) — avaliação gratuita ou conversa com equipe
-    if (agentType === 'zelar' && action === 'schedule' && aiResponse.appointmentDateTime) {
-      try {
-        const startDateTime = this.parseBrazilianDateTime(aiResponse.appointmentDateTime);
-        await this.appointmentsService.create({
-          leadId: lead.id,
-          clientName: lead.name || lead.phone,
-          clientPhone: lead.phone,
-          service: 'avaliacao' as any,
-          value: null,
-          status: 'agendado',
-          startDateTime,
-        });
-        await this.leadsService.update(lead.id, { appointmentAt: startDateTime });
-        this.logger.log(`📅 [ZELAR] Avaliação agendada para ${lead.phone} em ${startDateTime.toISOString()}`);
-      } catch (err: any) {
-        this.logger.error(`Erro ao criar agendamento Zelar: ${err.message}`);
-      }
-    }
-
-    if (agentType !== 'megahair' && agentType !== 'zelar' && action === 'schedule' && aiResponse.appointmentDateTime) {
-      const startDateTime = this.parseBrazilianDateTime(aiResponse.appointmentDateTime);
-      const { available, conflictingEvent } = await this.calendarService.checkAvailability(startDateTime);
-
-      if (!available) {
-        this.logger.warn(`Horário ocupado: ${startDateTime.toISOString()} (${conflictingEvent})`);
-        const busyReply = `Ops! Esse horário já está ocupado (${conflictingEvent}). Por favor, escolha outro horário ou dia 😊`;
-        this.logger.log(`📤 [BUSY SLOT] Enviando: ${busyReply.substring(0, 40)}...`);
-        await this.evolutionService.sendTextMessage(phone, busyReply);
-        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', busyReply);
-        const updatedLead = await this.leadsService.findOne(lead.id);
-        this.leadsGateway.emitLeadUpdated(updatedLead);
-        return;
-      }
-
-      const event = await this.calendarService.createAppointment({
-        leadName: lead.name || lead.phone,
-        phone: lead.phone,
-        symptoms: lead.symptoms || '',
-        startDateTime,
-      });
-
-      if (event) {
-        await this.leadsService.update(lead.id, { calendarEventId: event.id, calendarEventLink: event.htmlLink, appointmentAt: startDateTime });
-      }
-    }
-
-    if (action === 'cancel' && lead.calendarEventId) {
-      await this.calendarService.cancelAppointment(lead.calendarEventId);
-      await this.leadsService.update(lead.id, { calendarEventId: null, calendarEventLink: null, appointmentAt: null });
-    }
-
-    if (action === 'reschedule' && aiResponse.appointmentDateTime) {
-      const newDateTime = this.parseBrazilianDateTime(aiResponse.appointmentDateTime);
-      const { available, conflictingEvent } = await this.calendarService.checkAvailability(newDateTime);
-
-      if (!available) {
-        this.logger.warn(`Reagendamento bloqueado — horário ocupado: ${newDateTime.toISOString()}`);
-        const busyReply = `Esse horário também está ocupado (${conflictingEvent}). Tem outro horário de preferência? 😊`;
-        await this.evolutionService.sendTextMessage(phone, busyReply);
-        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', busyReply);
-        const updatedLead = await this.leadsService.findOne(lead.id);
-        this.leadsGateway.emitLeadUpdated(updatedLead);
-        return;
-      }
-
-      if (lead.calendarEventId) {
-        await this.calendarService.updateAppointment(lead.calendarEventId, newDateTime);
-        await this.leadsService.update(lead.id, { appointmentAt: newDateTime });
-      } else {
-        const event = await this.calendarService.createAppointment({
-          leadName: lead.name || lead.phone,
-          phone: lead.phone,
-          symptoms: lead.symptoms || '',
-          startDateTime: newDateTime,
-        });
-        if (event) {
-          await this.leadsService.update(lead.id, { calendarEventId: event.id, calendarEventLink: event.htmlLink, appointmentAt: newDateTime });
-        }
       }
     }
 
@@ -373,30 +253,61 @@ export class EvolutionController {
         const type = mediaFile.mimeType?.startsWith('video/') ? 'video' : 'image';
         await this.uazapiProvider.sendMediaByUrl(phone, mediaFile.url, type, aiResponse.reply);
         await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', `[mídia: ${mediaFile.name}] ${aiResponse.reply}`);
+        if (aiResponse.stage && aiResponse.stage !== lead.stage) {
+          await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+        }
+        // Após enviar PIX, pausa IA aguardando confirmação do operador
+        await this.leadsService.toggleAi(lead.id, false);
         const updatedLead = await this.leadsService.findOne(lead.id);
         this.leadsGateway.emitLeadUpdated(updatedLead);
         return;
       } else {
-        this.logger.warn(`Mídia "${aiResponse.mediaName}" não encontrada no banco`);
+        this.logger.warn(`[LIA] Mídia "${aiResponse.mediaName}" não encontrada no banco`);
       }
     }
 
-    const respondWithAudio = this.lastMessageWasAudio.get(phone) === true;
+    // Confirmação de pagamento: cartão → gera link InfinitPay; boleto (menciona Lícia) → manual
+    if (aiResponse.action === 'aguardar_confirmacao_pagamento' || aiResponse.action === 'send_payment_link') {
+      const isCard = !aiResponse.reply.toLowerCase().includes('lícia') && !aiResponse.reply.toLowerCase().includes('licia');
+      if (isCard) {
+        try {
+          const paymentUrl = await this.infinitpayService.createPaymentLink(lead.id);
+          const msg = `${aiResponse.reply}\n\n${paymentUrl}`;
+          await this.evolutionService.sendTextMessage(phone, msg);
+          await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);
+          if (aiResponse.stage) await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+          await this.leadsService.toggleAi(lead.id, false);
+          const updatedLead = await this.leadsService.findOne(lead.id);
+          this.leadsGateway.emitLeadUpdated(updatedLead);
+        } catch (err) {
+          this.logger.error(`[InfinitPay] Falha ao criar link para ${phone}: ${err.message}`);
+          await this.evolutionService.sendTextMessage(phone, 'Tive um probleminha ao gerar o link de pagamento. Nossa equipe entrará em contato em breve! 😊');
+        }
+        return;
+      }
+      // Boleto — permanece manual + aplica etiqueta "boleto" para o operador identificar
+      this.logger.log(`⏳ [LIA] Boleto — operador deve confirmar para ${phone}`);
+      await this.leadsService.toggleAi(lead.id, false);
+      const existingLabels: string[] = lead.labels ?? [];
+      if (!existingLabels.includes('boleto')) {
+        await this.applyTagsToLead(phone, ['boleto']);
+        await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
+      }
+    }
+
     this.lastMessageWasAudio.delete(phone);
 
-    if (respondWithAudio) {
-      try {
-        this.logger.log(`Gerando TTS para ${phone}...`);
-        const audioBuffer = await this.audioService.textToSpeech(aiResponse.reply);
-        this.logger.log(`TTS gerado (${audioBuffer.length} bytes), enviando áudio para ${phone}...`);
-        await this.evolutionService.sendAudioMessage(phone, audioBuffer);
-        this.logger.log(`✅ [AUDIO] Resposta enviada como áudio para ${phone}`);
-      } catch (err) {
-        const status = err?.response?.status ?? err?.status ?? 'N/A';
-        this.logger.warn(`Falha ao gerar/enviar áudio [HTTP ${status}], enviando como texto: ${err.message}`);
-        this.logger.log(`📤 [AUDIO FALLBACK] Enviando fallback: ${aiResponse.reply.substring(0, 50)}...`);
-        await this.evolutionService.sendTextMessage(phone, aiResponse.reply);
+    const blocks = aiResponse.reply.split('[NEXT]').map((b: string) => b.trim()).filter(Boolean);
+    if (blocks.length > 1) {
+      for (let i = 0; i < blocks.length; i++) {
+        if (i > 0) {
+          void this.evolutionService.sendTypingIndicator(phone, 5000);
+          await new Promise(r => setTimeout(r, 4500));
+        }
+        this.logger.log(`📤 [TEXT ${i + 1}/${blocks.length}] Enviando para ${phone}: ${blocks[i].substring(0, 60)}...`);
+        await this.evolutionService.sendTextMessage(phone, blocks[i]);
       }
+      this.logger.log(`✅ [TEXT] ${blocks.length} blocos enviados para ${phone}`);
     } else {
       this.logger.log(`📤 [TEXT] Enviando resposta para ${phone}: ${aiResponse.reply.substring(0, 60)}...`);
       await this.evolutionService.sendTextMessage(phone, aiResponse.reply);
@@ -493,6 +404,109 @@ export class EvolutionController {
         this.logger.error(`Erro ao processar áudio Meta de ${phone}: ${err.message}`),
       );
     });
+  }
+
+  @Get('infinitpay/redirect')
+  handleInfinitpayRedirect(@Res() res: Response) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamento confirmado — Zelar</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0fdf4; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: #fff; border-radius: 20px; padding: 40px 32px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .icon { font-size: 56px; margin-bottom: 16px; }
+    h1 { font-size: 22px; font-weight: 700; color: #16a34a; margin-bottom: 12px; }
+    p { font-size: 15px; color: #4b5563; line-height: 1.6; margin-bottom: 8px; }
+    .highlight { font-weight: 600; color: #111827; }
+    .whatsapp { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; background: #25d366; color: #fff; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 999px; text-decoration: none; }
+    .whatsapp:hover { background: #1ebe5d; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✅</div>
+    <h1>Pagamento confirmado!</h1>
+    <p>Obrigada por escolher a <span class="highlight">Zelar</span>.</p>
+    <p style="margin-top:12px">Volte para o WhatsApp — em até <span class="highlight">1 minuto</span> você receberá o formulário de matrícula para concluir sua inscrição.</p>
+    <a class="whatsapp" href="https://wa.me/5527996972230">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Voltar para o WhatsApp
+    </a>
+  </div>
+</body>
+</html>`);
+  }
+
+  @Post('infinitpay')
+  async handleInfinitpayWebhook(@Body() body: any) {
+    // Responde imediatamente (InfinitPay exige < 1s) e processa async
+    this.processInfinitpayPayment(body).catch(err =>
+      this.logger.error(`[InfinitPay] Erro no processamento: ${err.message}`),
+    );
+    return { success: true, message: null };
+  }
+
+  private async processInfinitpayPayment(body: any) {
+    const orderNsu: string = body.order_nsu;
+    const transactionNsu: string = body.transaction_nsu;
+    const slug: string = body.invoice_slug;
+
+    if (!orderNsu) {
+      this.logger.warn('[InfinitPay] Webhook sem order_nsu — ignorado');
+      return;
+    }
+
+    this.logger.log(`[InfinitPay] Webhook recebido — order_nsu=${orderNsu}, capture_method=${body.capture_method}, paid_amount=${body.paid_amount}`);
+
+    // Verifica se o lead existe (order_nsu = lead.id)
+    const lead = await this.leadsService.findOne(orderNsu);
+    if (!lead) {
+      this.logger.warn(`[InfinitPay] Lead não encontrado para order_nsu=${orderNsu}`);
+      return;
+    }
+
+    if (lead.stage !== 'aguardando_pagamento') {
+      this.logger.warn(`[InfinitPay] Lead ${orderNsu} já processado (stage=${lead.stage}) — ignorando`);
+      return;
+    }
+
+    // Valida o pagamento com InfinitPay (segurança)
+    const isPaid = await this.infinitpayService.verifyPayment(orderNsu, transactionNsu, slug);
+    if (!isPaid) {
+      this.logger.warn(`[InfinitPay] Pagamento não confirmado pelo /payment_check para order_nsu=${orderNsu}`);
+      return;
+    }
+
+    // Confirma pagamento e reativa IA
+    await this.leadsService.updateStage(orderNsu, 'pagamento_confirmado' as any, 'system');
+    await this.leadsService.toggleAi(orderNsu, true);
+    this.logger.log(`[InfinitPay] ✅ Pagamento confirmado automaticamente para lead ${orderNsu}`);
+
+    // LIA retoma e envia formulário de matrícula
+    const instanceConfig = await this.whatsappConfigService.get();
+    const confirmationMsg = '[Sistema] Pagamento confirmado automaticamente via InfinitPay. Envie o link do formulário de matrícula (PASSO 5).';
+    const updatedLead = await this.leadsService.findOne(orderNsu);
+    if (!updatedLead) return;
+
+    const aiResponse = await this.aiService.processMessageLia(
+      updatedLead,
+      confirmationMsg,
+      instanceConfig?.customPromptLia ?? undefined,
+    );
+
+    if (aiResponse.success && aiResponse.reply) {
+      await this.evolutionService.sendTextMessage(lead.phone, aiResponse.reply);
+      const context = this.aiService.buildUpdatedContext(updatedLead, confirmationMsg, aiResponse.rawJson!);
+      await this.leadsService.update(orderNsu, { aiContext: context } as any);
+    }
+
+    const finalLead = await this.leadsService.findOne(orderNsu);
+    this.leadsGateway.emitLeadUpdated(finalLead);
   }
 
   @Post('manual')

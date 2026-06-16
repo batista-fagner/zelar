@@ -30,8 +30,6 @@ function StatusBadge({ status }) {
 
 export default function SettingsPage() {
   const [bootstrapping, setBootstrapping] = useState(true)
-  const [agentType, setAgentType] = useState('fisio')
-  const [savingAgent, setSavingAgent] = useState(false)
   const [instanceConfig, setInstanceConfig] = useState(null) // null = não tem; objeto = tem
   const [instanceStatus, setInstanceStatus] = useState(null)
   const [connectMode, setConnectMode] = useState('qrcode')
@@ -49,11 +47,9 @@ export default function SettingsPage() {
   const [error, setError] = useState(null)
   const [instanceName, setInstanceName] = useState('')
   const [creatingInstance, setCreatingInstance] = useState(false)
-  const [customPromptSofia, setCustomPromptSofia] = useState('')
-  const [customPromptMegaHair, setCustomPromptMegaHair] = useState('')
-  const [customPromptClara, setCustomPromptClara] = useState('')
-  const [defaultPrompts, setDefaultPrompts] = useState({ sofia: '', megahair: '', clara: '' })
-  const [activePromptTab, setActivePromptTab] = useState('sofia')
+  const [customPromptLia, setCustomPromptLia] = useState('')
+  const [defaultPrompts, setDefaultPrompts] = useState({ lia: '' })
+  const [activePromptTab, setActivePromptTab] = useState('lia')
   const [savingPrompt, setSavingPrompt] = useState(false)
   const pollingRef = useRef(null)
 
@@ -76,10 +72,7 @@ export default function SettingsPage() {
       const data = await res.json()
       setInstanceConfig(data)
       setWebhookConfigured(data?.webhookConfigured ?? false)
-      if (data?.agentType) setAgentType(data.agentType)
-      if (data?.customPromptSofia != null) setCustomPromptSofia(data.customPromptSofia)
-      if (data?.customPromptMegaHair != null) setCustomPromptMegaHair(data.customPromptMegaHair)
-      if (data?.customPromptClara != null) setCustomPromptClara(data.customPromptClara)
+      if (data?.customPromptLia != null) setCustomPromptLia(data.customPromptLia)
       return data
     } catch {
       setInstanceConfig(null)
@@ -92,10 +85,7 @@ export default function SettingsPage() {
       const res = await fetch(`${API_URL}/instance/default-prompts`)
       const data = await res.json()
       setDefaultPrompts(data)
-      // Só preenche com padrão se ainda não tem customizado
-      setCustomPromptSofia(prev => prev || data.sofia)
-      setCustomPromptMegaHair(prev => prev || data.megahair)
-      setCustomPromptClara(prev => prev || data.clara)
+      setCustomPromptLia(prev => prev || data.lia)
     } catch { /* silencioso */ }
   }
 
@@ -544,53 +534,6 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Card de seleção do agente */}
-      {!bootstrapping && instanceConfig && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
-          <h2 className="text-sm font-semibold text-gray-800 mb-1">Agente de IA</h2>
-          <p className="text-xs text-gray-500 mb-4">Escolha o agente que vai responder as mensagens nesta conexão.</p>
-          <div className="flex gap-3">
-            {[
-              { value: 'fisio', label: 'Fisioterapia', desc: 'Qualificação + agendamento de consulta' },
-              { value: 'megahair', label: 'Mega Hair', desc: 'Qualificação + envio de vídeo + venda' },
-              { value: 'zelar', label: 'Zelar (Cuidadores)', desc: 'Família × Cuidador + avaliação gratuita' },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setAgentType(opt.value)}
-                className={`flex-1 text-left p-4 rounded-xl border-2 transition ${
-                  agentType === opt.value
-                    ? 'border-teal-600 bg-teal-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <p className={`text-sm font-semibold ${agentType === opt.value ? 'text-teal-700' : 'text-gray-700'}`}>{opt.label}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={async () => {
-              setSavingAgent(true)
-              try {
-                await fetch(`${API_URL}/instance/config`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ agentType }),
-                })
-              } finally {
-                setSavingAgent(false)
-              }
-            }}
-            disabled={savingAgent || agentType === instanceConfig?.agentType}
-            className="mt-4 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50"
-          >
-            {savingAgent ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {savingAgent ? 'Salvando...' : 'Salvar agente'}
-          </button>
-        </div>
-      )}
-
       {/* Card de prompt customizado */}
       {!bootstrapping && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
@@ -618,12 +561,8 @@ export default function SettingsPage() {
 
           {/* Textarea */}
           <textarea
-            value={activePromptTab === 'sofia' ? customPromptSofia : activePromptTab === 'megahair' ? customPromptMegaHair : customPromptClara}
-            onChange={e => {
-              if (activePromptTab === 'sofia') setCustomPromptSofia(e.target.value)
-              else if (activePromptTab === 'megahair') setCustomPromptMegaHair(e.target.value)
-              else setCustomPromptClara(e.target.value)
-            }}
+            value={customPromptLia}
+            onChange={e => setCustomPromptLia(e.target.value)}
             className="w-full h-80 text-xs font-mono border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700 leading-relaxed"
             placeholder="Digite o prompt da IA aqui..."
             spellCheck={false}
@@ -638,11 +577,7 @@ export default function SettingsPage() {
                   await fetch(`${API_URL}/instance/config`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      customPromptSofia: customPromptSofia || null,
-                      customPromptMegaHair: customPromptMegaHair || null,
-                      customPromptClara: customPromptClara || null,
-                    }),
+                    body: JSON.stringify({ customPromptLia: customPromptLia || null }),
                   })
                 } finally {
                   setSavingPrompt(false)
@@ -653,16 +588,6 @@ export default function SettingsPage() {
             >
               {savingPrompt ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {savingPrompt ? 'Salvando...' : 'Salvar prompt'}
-            </button>
-            <button
-              onClick={() => {
-                if (activePromptTab === 'sofia') setCustomPromptSofia(defaultPrompts.sofia)
-                else if (activePromptTab === 'megahair') setCustomPromptMegaHair(defaultPrompts.megahair)
-                else setCustomPromptClara(defaultPrompts.clara)
-              }}
-              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            >
-              Restaurar padrão
             </button>
           </div>
         </div>

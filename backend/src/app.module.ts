@@ -16,6 +16,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { BulkMessageModule } from './bulk-message/bulk-message.module';
 import { MediaModule } from './media/media.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { InfinitpayModule } from './infinitpay/infinitpay.module';
 
 @Module({
   imports: [
@@ -27,8 +28,14 @@ import { AppointmentsModule } from './appointments/appointments.module';
         url: config.get('SUPABASE_DATABASE_URL'),
         ssl: { rejectUnauthorized: false },
         entities: [Lead, Conversation, Message, LeadStageHistory, Campaign, WhatsappConfig, MediaFile, Appointment, DeletedLead],
-        synchronize: true, // apenas dev — gera tabelas automaticamente
+        synchronize: true,
         logging: false,
+        pool: {
+          max: 20,
+          min: 2,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
+        },
       }),
     }),
     EvolutionModule,
@@ -37,6 +44,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
     BulkMessageModule,
     MediaModule,
     AppointmentsModule,
+    InfinitpayModule,
   ],
 })
 export class AppModule {}

@@ -54,16 +54,14 @@ export class InstanceController {
   }
 
   @Patch('config')
-  async updateConfig(@Body() body: { agentType?: string; customPromptSofia?: string | null; customPromptMegaHair?: string | null; customPromptClara?: string | null }) {
+  async updateConfig(@Body() body: { customPromptLia?: string | null }) {
     return this.whatsappConfigService.updateConfig(body);
   }
 
   @Get('default-prompts')
   async getDefaultPrompts() {
     return {
-      sofia: this.aiService.getDefaultPromptSofia(),
-      megahair: this.aiService.getDefaultPromptMegaHair(),
-      clara: this.aiService.getDefaultPromptClara(),
+      lia: this.aiService.getDefaultPromptLia(),
     };
   }
 }

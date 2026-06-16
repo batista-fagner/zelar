@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -17,6 +17,7 @@ import { CalendarModule } from '../calendar/calendar.module';
 import { AudioModule } from '../audio/audio.module';
 import { MediaModule } from '../media/media.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { InfinitpayModule } from '../infinitpay/infinitpay.module';
 
 @Module({
   imports: [
@@ -26,12 +27,13 @@ import { AppointmentsModule } from '../appointments/appointments.module';
     }),
     ConfigModule,
     TypeOrmModule.forFeature([WhatsappConfig]),
-    LeadsModule,
+    forwardRef(() => LeadsModule),
     AiModule,
     CalendarModule,
     AudioModule,
     MediaModule,
     AppointmentsModule,
+    InfinitpayModule,
   ],
   controllers: [EvolutionController, InstanceController, AdminController],
   providers: [
@@ -49,6 +51,6 @@ import { AppointmentsModule } from '../appointments/appointments.module';
     EvolutionService,
     MessageQueueService,
   ],
-  exports: [EvolutionService],
+  exports: [EvolutionService, WhatsappConfigService],
 })
 export class EvolutionModule {}

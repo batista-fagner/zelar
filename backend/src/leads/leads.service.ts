@@ -248,7 +248,7 @@ export class LeadsService implements OnApplicationBootstrap {
       : await this.leadsRepo.find();
 
     // 2. Funil — contagem por stage
-    const stages: LeadStage[] = ['novo_lead', 'em_atendimento', 'agendado', 'convertido', 'perdido'];
+    const stages: LeadStage[] = ['novo_lead', 'em_atendimento', 'aguardando_pagamento', 'pagamento_confirmado', 'matriculado', 'perdido'];
     const byStage: Record<string, number> = {};
     for (const s of stages) byStage[s] = 0;
     for (const lead of leads) {
@@ -256,7 +256,7 @@ export class LeadsService implements OnApplicationBootstrap {
     }
 
     const total = leads.length;
-    const agendadoCount = byStage['agendado'] + byStage['convertido'];
+    const agendadoCount = byStage['pagamento_confirmado'] + byStage['matriculado'];
     const perdidoCount = byStage['perdido'];
     const conversionRate = total > 0 ? +(agendadoCount / total * 100).toFixed(1) : 0;
     const lossRate = total > 0 ? +(perdidoCount / total * 100).toFixed(1) : 0;

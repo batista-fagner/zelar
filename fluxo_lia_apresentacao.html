@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fluxo LIA — Zelar</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .page-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+
+    .page-header p {
+      color: #666;
+      margin-top: 6px;
+      font-size: 15px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #25d366;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-top: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .flow-wrapper {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* STEP CARD */
+    .step-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+
+    .step-subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    /* CHAT AREA */
+    .chat-area {
+      background: #eae6df url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c5b9a8' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .msg-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .msg-row.right {
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: white;
+    }
+
+    .avatar.lia  { background: #075e54; }
+    .avatar.user { background: #9e9e9e; }
+
+    .bubble {
+      max-width: 72%;
+      padding: 10px 14px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.55;
+      position: relative;
+      word-break: break-word;
+    }
+
+    .bubble.lia {
+      background: white;
+      border-bottom-left-radius: 4px;
+      color: #111;
+    }
+
+    .bubble.user {
+      background: #d9fdd3;
+      border-bottom-right-radius: 4px;
+      color: #111;
+    }
+
+    .bubble .time {
+      font-size: 11px;
+      color: #aaa;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .bubble.user .time {
+      color: #7fa87a;
+    }
+
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0 4px 40px;
+      font-size: 12px;
+      color: #888;
+      font-style: italic;
+    }
+
+    .dots {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .dots span {
+      width: 6px;
+      height: 6px;
+      background: #888;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+      40% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    .delay-badge {
+      text-align: center;
+      font-size: 11px;
+      color: #aaa;
+      background: rgba(0,0,0,0.05);
+      border-radius: 10px;
+      padding: 3px 10px;
+      margin: 2px auto;
+      width: fit-content;
+    }
+
+    /* FORK */
+    .fork-row {
+      display: flex;
+      gap: 16px;
+      padding: 16px 24px;
+    }
+
+    .fork-option {
+      flex: 1;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+
+    .fork-option.yes {
+      background: #e8f5e9;
+      border: 1.5px solid #a5d6a7;
+    }
+
+    .fork-option.no {
+      background: #fce4ec;
+      border: 1.5px solid #f48fb1;
+    }
+
+    .fork-option .fork-label {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .fork-option.yes .fork-label { color: #2e7d32; }
+    .fork-option.no  .fork-label { color: #c62828; }
+
+    .fork-option p { color: #555; line-height: 1.5; }
+
+    /* HIGHLIGHT BOX */
+    .info-box {
+      margin: 0 24px 20px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #444;
+    }
+
+    .info-box.blue   { background: #e3f2fd; border-left: 4px solid #1976d2; }
+    .info-box.green  { background: #e8f5e9; border-left: 4px solid #388e3c; }
+    .info-box.orange { background: #fff3e0; border-left: 4px solid #f57c00; }
+
+    /* COLORS PER STEP */
+    .s1 .step-number { background: #e3f2fd; color: #1565c0; }
+    .s2 .step-number { background: #e8f5e9; color: #2e7d32; }
+    .s3 .step-number { background: #fff3e0; color: #e65100; }
+    .s4 .step-number { background: #fce4ec; color: #880e4f; }
+    .s5 .step-number { background: #ede7f6; color: #4527a0; }
+    .s6 .step-number { background: #e0f7fa; color: #006064; }
+
+    /* FOOTER */
+    .footer {
+      text-align: center;
+      margin-top: 48px;
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    .footer strong { color: #25d366; }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Fluxo de Atendimento — LIA</h1>
+    <p>Agente de inteligência artificial para recrutamento de cuidadores</p>
+    <span class="badge">Zelar · Curso de Capacitação · Junho 2026</span>
+  </div>
+
+  <div class="flow-wrapper">
+
+    <!-- PASSO 1 -->
+    <div class="step-card s1">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div>
+          <div class="step-title">Boas-vindas + Nome</div>
+          <div class="step-subtitle">Primeiro contato — LIA se apresenta e coleta o nome</div>
+        </div>
+      </div>
+      <div class="chat-area">
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">Olá, vi que vocês oferecem curso para cuidadores<div class="time">09:01</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">Oi! Sou a LIA, da Zelar 😊 Que ótimo que você tem interesse em cuidar de pessoas! Qual é o seu nome?<div class="time">09:01</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSO 2 -->
+    <div class="step-card s2">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div>
+          <div class="step-title">Qualificação — Experiência anterior</div>
+          <div class="step-subtitle">Entende o perfil da pessoa e cria conexão</div>
+        </div>
+      </div>
+      <div class="chat-area">
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">Meu nome é Maria<div class="time">09:02</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">Maria, me conta — você já tem alguma experiência com cuidados? Pode ser em família, hospital ou qualquer outro contexto.<div class="time">09:02</div></div>
+        </div>
+      </div>
+      <div class="fork-row">
+        <div class="fork-option yes">
+          <div class="fork-label">✓ Tem experiência</div>
+          <p>"Que ótimo! Isso vai fazer toda diferença no curso."</p>
+        </div>
+        <div class="fork-option no">
+          <div class="fork-label">✗ Não tem experiência</div>
+          <p>"Sem problema! O curso foi feito justamente para quem quer começar do zero."</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSO 3 -->
+    <div class="step-card s3">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div>
+          <div class="step-title">Verificação de Disponibilidade</div>
+          <div class="step-subtitle">Confirma antes de apresentar o curso</div>
+        </div>
+      </div>
+      <div class="chat-area">
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">Já cuidei da minha avó por 2 anos<div class="time">09:03</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">Que experiência valiosa! O nosso próximo curso acontece nos dias 14 e 15 de junho. Você teria disponibilidade nesses dias?<div class="time">09:03</div></div>
+        </div>
+      </div>
+      <div class="fork-row">
+        <div class="fork-option yes">
+          <div class="fork-label">✓ Tem disponibilidade</div>
+          <p>Avança para a apresentação completa do curso.</p>
+        </div>
+        <div class="fork-option no">
+          <div class="fork-label">✗ Não tem disponibilidade</div>
+          <p>"Entendo! Vou te avisar quando a próxima turma abrir. Posso registrar seu contato?"</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSO 4 -->
+    <div class="step-card s4">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div>
+          <div class="step-title">Apresentação do Curso — 3 mensagens automáticas</div>
+          <div class="step-subtitle">Enviadas em sequência com "digitando..." entre cada bloco</div>
+        </div>
+      </div>
+      <div class="chat-area">
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">Sim, tenho disponibilidade!<div class="time">09:04</div></div>
+        </div>
+
+        <!-- Bloco 1 -->
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">
+            Perfeito! 🎉 Os dias do curso são:<br>
+            - 14/06: aula teórica — 8h30 às 17h30<br>
+            - 15/06: aula prática — 7h30 às 16h30
+            <div class="time">09:04</div>
+          </div>
+        </div>
+
+        <!-- Typing 2 -->
+        <div class="typing-indicator">
+          <div class="dots"><span></span><span></span><span></span></div>
+          LIA está digitando...
+        </div>
+        <div class="delay-badge">⏱ ~4 segundos</div>
+
+        <!-- Bloco 2 -->
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">
+            Nosso endereço é esse aqui 😊<br>
+            📍 Teoria: Prédio Jamille, Rua Dr. Moscoso 217, sala 102, Centro — São Mateus (perto da Unopar)<br>
+            🏥 Prática: Lar dos Velhinhos
+            <div class="time">09:04</div>
+          </div>
+        </div>
+
+        <!-- Typing 3 -->
+        <div class="typing-indicator">
+          <div class="dots"><span></span><span></span><span></span></div>
+          LIA está digitando...
+        </div>
+        <div class="delay-badge">⏱ ~4 segundos</div>
+
+        <!-- Bloco 3 -->
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">
+            Vai estar incluso pra você 😊<br>
+            ✓ Apostila<br>
+            ✓ Café e lanches<br>
+            ✓ Certificado<br>
+            ✓ Lembrancinha<br><br>
+            Tem interesse em garantir sua vaga?
+            <div class="time">09:05</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSO 5 -->
+    <div class="step-card s5">
+      <div class="step-header">
+        <div class="step-number">5</div>
+        <div>
+          <div class="step-title">Revelação do Valor</div>
+          <div class="step-subtitle">Apresentado somente após confirmar interesse</div>
+        </div>
+      </div>
+      <div class="chat-area">
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">Sim, tenho interesse!<div class="time">09:06</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">O investimento é R$ 500,00. As vagas são limitadas — o que acha de garantir a sua?<div class="time">09:06</div></div>
+        </div>
+      </div>
+      <div class="fork-row">
+        <div class="fork-option yes">
+          <div class="fork-label">✓ Aceita o valor</div>
+          <p>Avança para o fechamento da inscrição.</p>
+        </div>
+        <div class="fork-option no">
+          <div class="fork-label">✗ Hesita no valor</div>
+          <p>LIA reforça o que está incluso e o benefício de entrar na rede Zelar com acesso a vagas reais.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSO 6 -->
+    <div class="step-card s6">
+      <div class="step-header">
+        <div class="step-number">6</div>
+        <div>
+          <div class="step-title">Fechamento — Confirmação da Inscrição</div>
+          <div class="step-subtitle">Coleta e-mail e WhatsApp para registrar a vaga</div>
+        </div>
+      </div>
+      <div class="chat-area">
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">Quero garantir minha vaga!<div class="time">09:07</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">Ótimo! Para confirmar sua inscrição, me passa seu e-mail e o melhor número de WhatsApp?<div class="time">09:07</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar user">C</div>
+          <div class="bubble user">maria@email.com · (27) 99999-9999<div class="time">09:08</div></div>
+        </div>
+        <div class="msg-row">
+          <div class="avatar lia">L</div>
+          <div class="bubble lia">Perfeito, Maria! Sua inscrição está confirmada 🎉 Nos vemos nos dias 14 e 15 de junho. Qualquer dúvida, é só chamar aqui!<div class="time">09:08</div></div>
+        </div>
+      </div>
+      <div class="info-box green" style="margin-top:0">
+        ✅ Lead salvo no sistema com nome, e-mail e WhatsApp — visível no painel de gestão da Zelar.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Desenvolvido por <strong>Zelar · Tecnologia em Cuidados</strong> · Atendimento 24h via WhatsApp
+  </div>
+
+</body>
+</html>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Lock, Mail, Eye, EyeOff, Stethoscope } from 'lucide-react'
+import { Lock, Mail, Eye, EyeOff, Heart } from 'lucide-react'
 
-const DEMO_EMAIL = 'demo@fisio.com'
+const DEMO_EMAIL = 'demo@zelar.com'
 const DEMO_PASSWORD = 'demo123'
 
 export default function LoginPage({ onLogin }) {
@@ -38,11 +38,11 @@ export default function LoginPage({ onLogin }) {
 
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-lg mb-4">
-            <Stethoscope className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-600 rounded-2xl shadow-lg mb-4">
+            <Heart className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Sofia</h1>
-          <p className="text-gray-500 text-sm mt-1">Secretária Virtual — Clínica Silva Fisioterapia</p>
+          <h1 className="text-2xl font-bold text-gray-800">Zelar</h1>
+          <p className="text-gray-500 text-sm mt-1">Plataforma de gestão inteligente de cuidadores</p>
         </div>
 
         {/* Card */}
@@ -127,7 +127,7 @@ export default function LoginPage({ onLogin }) {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          © 2026 Clínica Silva Fisioterapia — Sofia v1.0
+          © 2026 Zelar — v1.0
         </p>
       </div>
     </div>

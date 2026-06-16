@@ -6,7 +6,7 @@ import {
 import { Conversation } from './conversation.entity';
 import { LeadStageHistory } from './lead-stage-history.entity';
 
-export type LeadStage = 'novo_lead' | 'em_atendimento' | 'agendado' | 'convertido' | 'perdido';
+export type LeadStage = 'novo_lead' | 'em_atendimento' | 'aguardando_pagamento' | 'pagamento_confirmado' | 'matriculado' | 'perdido';
 
 export type LeadTemperature = 'quente' | 'morno' | 'frio';
 

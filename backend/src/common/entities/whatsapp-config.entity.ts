@@ -26,17 +26,8 @@ export class WhatsappConfig {
   @Column({ name: 'webhook_url', nullable: true, type: 'text' })
   webhookUrl: string;
 
-  @Column({ name: 'agent_type', default: 'fisio' })
-  agentType: string; // 'fisio' | 'megahair' | 'zelar'
-
-  @Column({ name: 'custom_prompt_sofia', nullable: true, type: 'text' })
-  customPromptSofia: string | null;
-
-  @Column({ name: 'custom_prompt_megahair', nullable: true, type: 'text' })
-  customPromptMegaHair: string | null;
-
-  @Column({ name: 'custom_prompt_clara', nullable: true, type: 'text' })
-  customPromptClara: string | null;
+  @Column({ name: 'custom_prompt_lia', nullable: true, type: 'text' })
+  customPromptLia: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

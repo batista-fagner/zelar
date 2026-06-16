@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, Edit2, Calendar, Clock } from 'lucide-react'
+import { Trash2, Edit2, Calendar, Clock, CheckCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { updateName } from '../services/api'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 const NO_REPLY_ACTIVE_STAGES = ['novo_lead', 'qualificando', 'lead_quente', 'lead_frio']
 
@@ -28,6 +30,7 @@ const labelColor = {
   desrespeitoso:   'bg-red-100 text-red-600',
   emergencia:      'bg-red-100 text-red-600',
   'fora-de-escopo': 'bg-blue-100 text-blue-600',
+  boleto:          'bg-purple-100 text-purple-700',
 }
 
 const labelIcon = {
@@ -35,6 +38,7 @@ const labelIcon = {
   desrespeitoso:   '⛔',
   emergencia:      '🚨',
   'fora-de-escopo': '📵',
+  boleto:          '🧾',
 }
 
 const tempBadge = {
@@ -52,6 +56,22 @@ const scoreColor = (score) => {
 export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(lead.name || '')
+  const [confirmingPayment, setConfirmingPayment] = useState(false)
+  const [showConfirmPaymentModal, setShowConfirmPaymentModal] = useState(false)
+
+  async function handleConfirmPayment() {
+    setConfirmingPayment(true)
+    setShowConfirmPaymentModal(false)
+    try {
+      const res = await fetch(`${API_URL}/leads/${lead.id}/confirm-payment`, { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) onLeadUpdate?.({ ...lead, stage: 'pagamento_confirmado' })
+    } catch (err) {
+      console.error('Erro ao confirmar pagamento:', err)
+    } finally {
+      setConfirmingPayment(false)
+    }
+  }
   const inputRef = useRef(null)
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id })
   const noReplyLevel = getNoReplyLevel(lead)
@@ -190,17 +210,53 @@ export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
         </div>
       )}
 
-      {/* Link pro calendário quando agendado */}
-      {lead.stage === 'agendado' && (
-        <div className="mt-2 pt-2 border-t border-gray-50">
-          <Link
-            to="/calendar"
+      {/* Botão confirmar pagamento */}
+      {lead.stage === 'aguardando_pagamento' && (
+        <div className="mt-2 pt-2 border-t border-amber-100">
+          <button
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 text-[10px] text-pink-600 hover:text-pink-700 font-semibold hover:underline"
+            onClick={(e) => { e.stopPropagation(); setShowConfirmPaymentModal(true) }}
+            disabled={confirmingPayment}
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50"
           >
-            <Calendar className="w-3 h-3" /> Ver no calendário
-          </Link>
+            <CheckCircle className="w-3.5 h-3.5" />
+            {confirmingPayment ? 'Confirmando...' : 'Confirmar Pagamento'}
+          </button>
+        </div>
+      )}
+
+      {/* Modal de confirmação de pagamento */}
+      {showConfirmPaymentModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-xl shadow-xl p-6 w-72 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                <CheckCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">Confirmar pagamento?</h3>
+                <p className="text-xs text-gray-500 mt-0.5">A IA será reativada e enviará o formulário de matrícula para <span className="font-medium">{lead.name || lead.phone}</span>.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirmPaymentModal(false)}
+                className="flex-1 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                className="flex-1 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

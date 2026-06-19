@@ -144,7 +144,15 @@ export class EvolutionController {
     // Se IA desativada (etiquetado como inativo), apenas salva e notifica frontend — nunca responde
     const aiEnabled = await this.leadsService.getAiEnabled(lead.id);
     if (!aiEnabled) {
-      this.logger.log(`IA desativada para ${phone} — mensagem ignorada (lead etiquetado ou operador assumiu)`);
+      // Caso especial: boleto aguardando pagamento — responde automaticamente quando cliente avisa que pagou
+      const isBoletoAguardando = lead.stage === 'aguardando_pagamento' && (lead.labels ?? []).includes('boleto');
+      const mentionouPagamento = /pagu|comprova|transferi|pix|deposit|boleto|fiz o pag/i.test(combinedText);
+      if (isBoletoAguardando && mentionouPagamento) {
+        const msg = 'Obrigada pelo aviso! 😊 Nosso time irá analisar o pagamento em até 3 dias úteis. Assim que confirmado, você receberá o acesso ao curso por aqui. Qualquer dúvida, estou à disposição!';
+        await this.evolutionService.sendTextMessage(phone, msg);
+        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);
+        this.logger.log(`[BOLETO] Resposta automática de prazo enviada para ${phone}`);
+      }
       const updatedLead = await this.leadsService.findOne(lead.id);
       this.leadsGateway.emitLeadUpdated(updatedLead);
       return;
@@ -205,7 +213,8 @@ export class EvolutionController {
     if (aiResponse.temperature) updateData.temperature = aiResponse.temperature;
     if (aiResponse.fields) {
       const f = aiResponse.fields;
-      if (f.name) updateData.name = f.name;
+      // Só atualiza nome se o lead ainda não tem um nome definido
+      if (f.name && !lead.name) updateData.name = f.name;
       if (f.qualificationScore !== undefined) updateData.qualificationScore = f.qualificationScore;
       if (f.qualificationStep !== undefined) updateData.qualificationStep = f.qualificationStep;
     }
@@ -239,10 +248,11 @@ export class EvolutionController {
       const newOrder = stageOrder[aiResponse.stage] ?? 0;
       const canRegress = aiResponse.stage === 'perdido';
 
-      if (newOrder >= currentOrder || canRegress) {
+      this.logger.log(`[STAGE] ${lead.stage}(${currentOrder}) → ${aiResponse.stage}(${newOrder})`);
+      if (newOrder > currentOrder) {
         await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
       } else {
-        this.logger.warn(`Stage regressivo bloqueado: ${lead.stage} → ${aiResponse.stage}`);
+        this.logger.warn(`[STAGE] Bloqueado pela IA: ${lead.stage} → ${aiResponse.stage} (só operador pode regredir)`);
       }
     }
 
@@ -266,9 +276,9 @@ export class EvolutionController {
       }
     }
 
-    // Confirmação de pagamento: cartão → gera link InfinitPay; boleto (menciona Lícia) → manual
+    // Confirmação de pagamento: cartão → gera link InfinitPay; boleto → notifica operador
     if (aiResponse.action === 'aguardar_confirmacao_pagamento' || aiResponse.action === 'send_payment_link') {
-      const isCard = !aiResponse.reply.toLowerCase().includes('lícia') && !aiResponse.reply.toLowerCase().includes('licia');
+      const isCard = aiResponse.action === 'send_payment_link' || !aiResponse.reply.toLowerCase().includes('boleto');
       if (isCard) {
         try {
           const paymentUrl = await this.infinitpayService.createPaymentLink(lead.id);
@@ -285,14 +295,21 @@ export class EvolutionController {
         }
         return;
       }
-      // Boleto — permanece manual + aplica etiqueta "boleto" para o operador identificar
-      this.logger.log(`⏳ [LIA] Boleto — operador deve confirmar para ${phone}`);
+      // Boleto — notifica operador via WhatsApp + etiqueta no card
+      this.logger.log(`⏳ [LIA] Boleto — notificando operador para ${phone}`);
       await this.leadsService.toggleAi(lead.id, false);
       const existingLabels: string[] = lead.labels ?? [];
       if (!existingLabels.includes('boleto')) {
         await this.applyTagsToLead(phone, ['boleto']);
         await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
       }
+      // Notificação para o operador
+      const operadorPhone = '5527997885752';
+      const clientName = lead.name || 'Sem nome';
+      const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
+      this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
+        this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
+      );
     }
 
     this.lastMessageWasAudio.delete(phone);

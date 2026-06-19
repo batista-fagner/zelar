@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { io } from 'socket.io-client'
 import { X, Bot, User, Phone, AlertCircle, Calendar, DollarSign, Clock, ChevronRight, Send, ExternalLink, Tag, FileText, Check } from 'lucide-react'
 import { getConversation, getHistory, toggleAi, sendManualMessage, removeLabel, updateObservations } from '../services/api'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 const labelColor = {
   inativo:          'bg-red-100 text-red-600 border-red-200',
@@ -75,6 +78,20 @@ export default function LeadModal({ lead, onClose }) {
     })
     getHistory(lead.id).then(h => setHistory(mapHistory(h)))
   }, [lead])
+
+  // Re-busca mensagens em tempo real quando a IA ou o sistema atualiza o lead
+  useEffect(() => {
+    if (!lead?.id) return
+    const socket = io(API_URL)
+    socket.on('lead:updated', (updatedLead) => {
+      if (updatedLead.id !== lead.id) return
+      getConversation(lead.id).then(conv => {
+        setMessages(mapMessages(conv?.messages))
+        setAiEnabled(conv?.aiEnabled ?? true)
+      })
+    })
+    return () => socket.disconnect()
+  }, [lead?.id])
 
   useEffect(() => {
     if (chatRef.current) {

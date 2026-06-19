@@ -148,11 +148,9 @@ Os juros são exibidos automaticamente na tela de pagamento."
 → action="aguardar_confirmacao_pagamento", stage="aguardando_pagamento"
 
 SE BOLETO:
-"Ok 😊 A emissão do boleto é feita pela nossa equipe.
-Para solicitar, entre em contato com:
-📞 Lícia – (33) 99544-5488
-Ela irá gerar e passar todas as orientações.
-Assim que confirmar o pagamento, me avisa por aqui."
+"Perfeito 😊 A emissão do boleto é feita pela nossa equipe.
+Aguarde um momento — nossa equipe vai entrar em contato com você para gerar e enviar o boleto.
+Assim que confirmar o pagamento, me avisa por aqui! 🙏"
 → action="aguardar_confirmacao_pagamento", stage="aguardando_pagamento"
 
 PASSO 6 — Após confirmação do pagamento pelo operador (stage="pagamento_confirmado")

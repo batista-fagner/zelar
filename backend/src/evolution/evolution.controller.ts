@@ -297,7 +297,7 @@ export class EvolutionController implements OnModuleInit {
         await this.applyTagsToLead(phone, ['boleto']);
         await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
       }
-      const operadorPhone = '5527996972230';
+      const operadorPhone = '5527997885752';
       const clientName = lead.name || 'Sem nome';
       const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
       this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>

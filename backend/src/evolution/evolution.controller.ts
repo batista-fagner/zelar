@@ -260,7 +260,7 @@ export class EvolutionController {
       const mediaFile = await this.mediaService.findByName(aiResponse.mediaName);
       if (mediaFile) {
         const type = mediaFile.mimeType?.startsWith('video/') ? 'video' : 'image';
-        const mediaBlocks = aiResponse.reply.split('[NEXT]').map((b: string) => b.trim()).filter(Boolean);
+        const mediaBlocks = aiResponse.reply.split('[NEXT]').map((b: string) => b.trim()).filter(b => b && !b.includes('[imagem') && !b.includes('[image') && !b.includes('📎'));
         const caption = mediaBlocks[0] ?? '';
         const extraBlocks = mediaBlocks.slice(1);
         await this.uazapiProvider.sendMediaByUrl(phone, mediaFile.url, type, caption);

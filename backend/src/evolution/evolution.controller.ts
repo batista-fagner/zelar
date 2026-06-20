@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Res, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Res, Logger, OnModuleInit } from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
@@ -16,7 +16,7 @@ import { AppointmentsService } from '../appointments/appointments.service';
 import { InfinitpayService } from '../infinitpay/infinitpay.service';
 
 @Controller('webhooks')
-export class EvolutionController {
+export class EvolutionController implements OnModuleInit {
   private readonly logger = new Logger(EvolutionController.name);
   private readonly processedIds = new Set<string>();
   // Rastreia se a última mensagem recebida de um phone foi áudio (para responder em áudio)
@@ -37,6 +37,12 @@ export class EvolutionController {
     private readonly appointmentsService: AppointmentsService,
     private readonly infinitpayService: InfinitpayService,
   ) {}
+
+  onModuleInit() {
+    this.leadsService.setFollowupSender((phone, message) =>
+      this.evolutionService.sendTextMessage(phone, message),
+    );
+  }
 
   @Post('uazapi')
   async handleUazapiWebhook(@Body() body: any) {

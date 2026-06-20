@@ -29,6 +29,12 @@ export class WhatsappConfig {
   @Column({ name: 'custom_prompt_lia', nullable: true, type: 'text' })
   customPromptLia: string | null;
 
+  @Column({ name: 'followup_delay_minutes', nullable: true, type: 'int', default: 60 })
+  followupDelayMinutes: number | null;
+
+  @Column({ name: 'followup_message', nullable: true, type: 'text' })
+  followupMessage: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

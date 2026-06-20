@@ -1,15 +1,23 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, IsNull, Repository } from 'typeorm';
 import { Lead, LeadStage } from '../common/entities/lead.entity';
 import { Conversation } from '../common/entities/conversation.entity';
 import { Message } from '../common/entities/message.entity';
 import { LeadStageHistory } from '../common/entities/lead-stage-history.entity';
 import { DeletedLead } from '../common/entities/deleted-lead.entity';
 import { Appointment } from '../common/entities/appointment.entity';
+import { WhatsappConfig } from '../common/entities/whatsapp-config.entity';
 
 @Injectable()
 export class LeadsService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(LeadsService.name);
+  private followupSender: ((phone: string, message: string) => Promise<void>) | null = null;
+
+  setFollowupSender(fn: (phone: string, message: string) => Promise<void>) {
+    this.followupSender = fn;
+  }
+
   constructor(
     @InjectRepository(Lead)
     private leadsRepo: Repository<Lead>,
@@ -23,9 +31,13 @@ export class LeadsService implements OnApplicationBootstrap {
     private deletedLeadsRepo: Repository<DeletedLead>,
     @InjectRepository(Appointment)
     private appointmentsRepo: Repository<Appointment>,
+    @InjectRepository(WhatsappConfig)
+    private whatsappConfigRepo: Repository<WhatsappConfig>,
   ) {}
 
   async onApplicationBootstrap() {
+    setInterval(() => this.runFollowupJob(), 5 * 60 * 1000);
+
     await this.leadsRepo.query(`
       UPDATE leads l
       SET last_message_direction = (
@@ -221,6 +233,48 @@ export class LeadsService implements OnApplicationBootstrap {
     }
     await this.historyRepo.delete({ leadId });
     await this.leadsRepo.delete(leadId);
+  }
+
+  async runFollowupJob() {
+    if (!this.followupSender) return;
+    const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    if (!config?.followupDelayMinutes || !config?.followupMessage) return;
+
+    const cutoff = new Date(Date.now() - config.followupDelayMinutes * 60 * 1000);
+    const leads = await this.leadsRepo.find({
+      where: { stage: 'pagamento_confirmado' as LeadStage, followupSentAt: IsNull() },
+    });
+
+    for (const lead of leads) {
+      const stageHistory = await this.historyRepo.findOne({
+        where: { leadId: lead.id, toStage: 'pagamento_confirmado' as LeadStage },
+        order: { createdAt: 'DESC' },
+      });
+      if (!stageHistory || stageHistory.createdAt > cutoff) continue;
+
+      try {
+        await this.followupSender(lead.phone, config.followupMessage);
+        await this.leadsRepo.update(lead.id, { followupSentAt: new Date() });
+        this.logger.log(`[FOLLOWUP] Enviado para ${lead.phone}`);
+      } catch (err) {
+        this.logger.error(`[FOLLOWUP] Falha para ${lead.phone}: ${err.message}`);
+      }
+    }
+  }
+
+  async updateFollowupConfig(delayMinutes: number, message: string): Promise<void> {
+    const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    if (config) {
+      await this.whatsappConfigRepo.update(config.id, { followupDelayMinutes: delayMinutes, followupMessage: message });
+    }
+  }
+
+  async getFollowupConfig(): Promise<{ delayMinutes: number; message: string }> {
+    const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    return {
+      delayMinutes: config?.followupDelayMinutes ?? 60,
+      message: config?.followupMessage ?? 'Olá! Já conseguiu preencher o formulário de matrícula? 😊',
+    };
   }
 
   async findDeleted(): Promise<DeletedLead[]> {

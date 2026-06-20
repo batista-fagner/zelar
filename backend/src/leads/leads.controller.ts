@@ -114,6 +114,17 @@ export class LeadsController {
     return lead;
   }
 
+  @Get('followup/config')
+  getFollowupConfig() {
+    return this.leadsService.getFollowupConfig();
+  }
+
+  @Post('followup/config')
+  async updateFollowupConfig(@Body() body: { delayMinutes: number; message: string }) {
+    await this.leadsService.updateFollowupConfig(body.delayMinutes, body.message);
+    return { ok: true };
+  }
+
   @Delete(':id')
   async deleteLead(@Param('id') id: string, @Body() body: { reason?: string } = {}) {
     await this.leadsService.deleteLead(id, body.reason ?? '');

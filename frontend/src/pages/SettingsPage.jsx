@@ -51,6 +51,9 @@ export default function SettingsPage() {
   const [defaultPrompts, setDefaultPrompts] = useState({ lia: '' })
   const [activePromptTab, setActivePromptTab] = useState('lia')
   const [savingPrompt, setSavingPrompt] = useState(false)
+  const [followupDelay, setFollowupDelay] = useState(60)
+  const [followupMessage, setFollowupMessage] = useState('Olá! Já conseguiu preencher o formulário de matrícula? 😊')
+  const [savingFollowup, setSavingFollowup] = useState(false)
   const pollingRef = useRef(null)
 
   const fetchStatus = async () => {
@@ -78,6 +81,15 @@ export default function SettingsPage() {
       setInstanceConfig(null)
       return null
     }
+  }
+
+  const fetchFollowupConfig = async () => {
+    try {
+      const res = await fetch(`${API_URL}/leads/followup/config`)
+      const data = await res.json()
+      setFollowupDelay(data.delayMinutes ?? 60)
+      setFollowupMessage(data.message ?? '')
+    } catch { /* silencioso */ }
   }
 
   const fetchDefaultPrompts = async () => {
@@ -131,6 +143,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchDefaultPrompts()
+    fetchFollowupConfig()
   }, [])
 
   useEffect(() => {
@@ -588,6 +601,71 @@ export default function SettingsPage() {
             >
               {savingPrompt ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {savingPrompt ? 'Salvando...' : 'Salvar prompt'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Card de follow-up automático */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">Follow-up automático</h2>
+          <p className="text-xs text-gray-500 mb-4">Após o pagamento confirmado, a LIA envia uma mensagem automática ao cliente perguntando se já preencheu o formulário.</p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2">Tempo de espera</label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { label: '30 min', value: 30 },
+                  { label: '1 hora', value: 60 },
+                  { label: '2 horas', value: 120 },
+                  { label: '3 horas', value: 180 },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFollowupDelay(opt.value)}
+                    className={`px-4 py-2 text-xs font-medium rounded-lg border transition ${
+                      followupDelay === opt.value
+                        ? 'bg-teal-700 text-white border-teal-700'
+                        : 'text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensagem do follow-up</label>
+              <textarea
+                value={followupMessage}
+                onChange={e => setFollowupMessage(e.target.value)}
+                rows={3}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700"
+                placeholder="Ex: Olá! Já conseguiu preencher o formulário de matrícula? 😊"
+              />
+            </div>
+
+            <button
+              onClick={async () => {
+                setSavingFollowup(true)
+                try {
+                  await fetch(`${API_URL}/leads/followup/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ delayMinutes: followupDelay, message: followupMessage }),
+                  })
+                } finally {
+                  setSavingFollowup(false)
+                }
+              }}
+              disabled={savingFollowup || !followupMessage.trim()}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50"
+            >
+              {savingFollowup ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {savingFollowup ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </div>

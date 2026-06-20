@@ -260,15 +260,24 @@ export class EvolutionController {
       const mediaFile = await this.mediaService.findByName(aiResponse.mediaName);
       if (mediaFile) {
         const type = mediaFile.mimeType?.startsWith('video/') ? 'video' : 'image';
-        await this.uazapiProvider.sendMediaByUrl(phone, mediaFile.url, type, aiResponse.reply);
-        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', `[mídia: ${mediaFile.name}] ${aiResponse.reply}`);
+        const mediaBlocks = aiResponse.reply.split('[NEXT]').map((b: string) => b.trim()).filter(Boolean);
+        const caption = mediaBlocks[0] ?? '';
+        const extraBlocks = mediaBlocks.slice(1);
+        await this.uazapiProvider.sendMediaByUrl(phone, mediaFile.url, type, caption);
+        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', `[mídia: ${mediaFile.name}] ${caption}`);
+        // Envia blocos extras após a imagem
+        for (const block of extraBlocks) {
+          void this.evolutionService.sendTypingIndicator(phone, 1500);
+          await new Promise(r => setTimeout(r, 1000));
+          await this.evolutionService.sendTextMessage(phone, block);
+          await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', block);
+        }
         if (aiResponse.stage && aiResponse.stage !== lead.stage) {
           await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
         }
         // Após enviar PIX, pausa IA aguardando confirmação do operador
         await this.leadsService.toggleAi(lead.id, false);
-        // Continua para processar [NEXT] blocos antes de retornar
-        aiResponse.reply = ''; // Limpa a reply para não enviar em duplicado
+        aiResponse.reply = ''; // Limpa para não enviar em duplicado
       } else {
         this.logger.warn(`[LIA] Mídia "${aiResponse.mediaName}" não encontrada no banco`);
       }

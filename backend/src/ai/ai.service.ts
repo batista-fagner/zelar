@@ -10,7 +10,7 @@ export interface AiResponse {
   rawJson?: string;
   stage?: string;
   temperature?: string;
-  action?: 'none' | 'send_media' | 'send_payment_link' | 'aguardar_confirmacao_pagamento';
+  action?: 'none' | 'send_media' | 'send_payment_link' | 'aguardar_confirmacao_pagamento' | 'aguardar_boleto';
   mediaName?: string;
   tags?: string[];
   shouldIgnore?: boolean;
@@ -59,7 +59,7 @@ RESPONDA SEMPRE em JSON com este formato exato (sem markdown, sem código, só o
   "reply": "texto da legenda ao enviar imagem, ou resposta normal",
   "stage": "novo_lead|em_atendimento|aguardando_pagamento|pagamento_confirmado|matriculado|perdido",
   "temperature": "quente|morno|frio",
-  "action": "none|send_media|send_payment_link|aguardar_confirmacao_pagamento",
+  "action": "none|send_media|send_payment_link|aguardar_confirmacao_pagamento|aguardar_boleto",
   "mediaName": "nome-exato-do-arquivo-ou-null",
   "tags": [],
   "shouldIgnore": false,
@@ -151,7 +151,7 @@ SE BOLETO:
 "Perfeito 😊 A emissão do boleto é feita pela nossa equipe.
 Aguarde um momento — nossa equipe vai entrar em contato com você para gerar e enviar o boleto.
 Assim que confirmar o pagamento, me avisa por aqui! 🙏"
-→ action="aguardar_confirmacao_pagamento", stage="aguardando_pagamento"
+→ action="aguardar_boleto", stage="aguardando_pagamento"
 
 PASSO 6 — Após confirmação do pagamento pelo operador (stage="pagamento_confirmado")
 O sistema retoma a conversa automaticamente. Envie:

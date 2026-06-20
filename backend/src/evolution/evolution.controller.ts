@@ -275,39 +275,38 @@ export class EvolutionController {
       }
     }
 
-    // Confirmação de pagamento: cartão → gera link InfinitPay; boleto → notifica operador
-    if (aiResponse.action === 'aguardar_confirmacao_pagamento' || aiResponse.action === 'send_payment_link') {
-      const isCard = aiResponse.action === 'send_payment_link' || !aiResponse.reply.toLowerCase().includes('boleto');
-      if (isCard) {
-        try {
-          const paymentUrl = await this.infinitpayService.createPaymentLink(lead.id);
-          const msg = `${aiResponse.reply}\n\n${paymentUrl}`;
-          await this.evolutionService.sendTextMessage(phone, msg);
-          await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);
-          if (aiResponse.stage) await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
-          await this.leadsService.toggleAi(lead.id, false);
-          const updatedLead = await this.leadsService.findOne(lead.id);
-          this.leadsGateway.emitLeadUpdated(updatedLead);
-        } catch (err) {
-          this.logger.error(`[InfinitPay] Falha ao criar link para ${phone}: ${err.message}`);
-          await this.evolutionService.sendTextMessage(phone, 'Tive um probleminha ao gerar o link de pagamento. Nossa equipe entrará em contato em breve! 😊');
-        }
-        return;
-      }
-      // Boleto — notifica operador via WhatsApp + etiqueta no card
+    // Boleto → notifica operador (action exclusiva)
+    if (aiResponse.action === 'aguardar_boleto') {
       this.logger.log(`⏳ [LIA] Boleto — notificando operador para ${phone}`);
       const existingLabels: string[] = lead.labels ?? [];
       if (!existingLabels.includes('boleto')) {
         await this.applyTagsToLead(phone, ['boleto']);
         await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
       }
-      // Notificação para o operador
       const operadorPhone = '5527996972230';
       const clientName = lead.name || 'Sem nome';
       const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
       this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
         this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
       );
+    }
+
+    // Confirmação de pagamento: cartão → gera link InfinitPay
+    if (aiResponse.action === 'aguardar_confirmacao_pagamento' || aiResponse.action === 'send_payment_link') {
+      try {
+        const paymentUrl = await this.infinitpayService.createPaymentLink(lead.id);
+        const msg = `${aiResponse.reply}\n\n${paymentUrl}`;
+        await this.evolutionService.sendTextMessage(phone, msg);
+        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);
+        if (aiResponse.stage) await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+        await this.leadsService.toggleAi(lead.id, false);
+        const updatedLead = await this.leadsService.findOne(lead.id);
+        this.leadsGateway.emitLeadUpdated(updatedLead);
+      } catch (err) {
+        this.logger.error(`[InfinitPay] Falha ao criar link para ${phone}: ${err.message}`);
+        await this.evolutionService.sendTextMessage(phone, 'Tive um probleminha ao gerar o link de pagamento. Nossa equipe entrará em contato em breve! 😊');
+      }
+      return;
     }
 
     this.lastMessageWasAudio.delete(phone);

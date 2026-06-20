@@ -267,9 +267,8 @@ export class EvolutionController {
         }
         // Após enviar PIX, pausa IA aguardando confirmação do operador
         await this.leadsService.toggleAi(lead.id, false);
-        const updatedLead = await this.leadsService.findOne(lead.id);
-        this.leadsGateway.emitLeadUpdated(updatedLead);
-        return;
+        // Continua para processar [NEXT] blocos antes de retornar
+        aiResponse.reply = ''; // Limpa a reply para não enviar em duplicado
       } else {
         this.logger.warn(`[LIA] Mídia "${aiResponse.mediaName}" não encontrada no banco`);
       }
@@ -315,23 +314,25 @@ export class EvolutionController {
     if (blocks.length > 1) {
       for (let i = 0; i < blocks.length; i++) {
         if (i > 0) {
-          void this.evolutionService.sendTypingIndicator(phone, 5000);
-          await new Promise(r => setTimeout(r, 4500));
+          void this.evolutionService.sendTypingIndicator(phone, 1500);
+          await new Promise(r => setTimeout(r, 1000));
         }
         this.logger.log(`📤 [TEXT ${i + 1}/${blocks.length}] Enviando para ${phone}: ${blocks[i].substring(0, 60)}...`);
         await this.evolutionService.sendTextMessage(phone, blocks[i]);
       }
       this.logger.log(`✅ [TEXT] ${blocks.length} blocos enviados para ${phone}`);
-    } else {
+      await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', aiResponse.reply);
+    } else if (blocks.length === 1) {
       this.logger.log(`📤 [TEXT] Enviando resposta para ${phone}: ${aiResponse.reply.substring(0, 60)}...`);
       await this.evolutionService.sendTextMessage(phone, aiResponse.reply);
       this.logger.log(`✅ [TEXT] Resposta enviada para ${phone}`);
+      await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', aiResponse.reply);
     }
-
-    await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', aiResponse.reply);
+    // blocks.length === 0: mídia já enviada, reply foi limpo — não envia texto duplicado
 
     const updatedLead = await this.leadsService.findOne(lead.id);
     this.leadsGateway.emitLeadUpdated(updatedLead);
+
   }
 
   // Verificação de webhook exigida pela Meta

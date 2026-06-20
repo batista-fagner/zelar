@@ -63,6 +63,14 @@ export class EvolutionController {
     const text: string = message.text;
     const isAudio = message.type === 'media' && ['audio', 'ptt', 'myaudio'].includes(message.mediaType);
 
+    // Ignora mensagens de números de operadores (evita IA responder a testes internos)
+    const operatorPhones = (this.configService.get<string>('OPERATOR_PHONES') ?? '')
+      .split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
+    if (operatorPhones.includes(phone)) {
+      this.logger.debug(`Webhook ignorado — número de operador: ${phone}`);
+      return { ok: true };
+    }
+
     if (!phone || (!text && !isAudio)) {
       this.logger.warn(`Webhook ignorado — phone="${phone}", text="${text}", type="${message.type}", mediaType="${message.mediaType}"`);
       return { ok: true };
@@ -144,15 +152,6 @@ export class EvolutionController {
     // Se IA desativada (etiquetado como inativo), apenas salva e notifica frontend — nunca responde
     const aiEnabled = await this.leadsService.getAiEnabled(lead.id);
     if (!aiEnabled) {
-      // Caso especial: boleto aguardando pagamento — responde automaticamente quando cliente avisa que pagou
-      const isBoletoAguardando = lead.stage === 'aguardando_pagamento' && (lead.labels ?? []).includes('boleto');
-      const mentionouPagamento = /pagu|comprova|transferi|pix|deposit|boleto|fiz o pag/i.test(combinedText);
-      if (isBoletoAguardando && mentionouPagamento) {
-        const msg = 'Obrigada pelo aviso! 😊 Nosso time irá analisar o pagamento em até 3 dias úteis. Assim que confirmado, você receberá o acesso ao curso por aqui. Qualquer dúvida, estou à disposição!';
-        await this.evolutionService.sendTextMessage(phone, msg);
-        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);
-        this.logger.log(`[BOLETO] Resposta automática de prazo enviada para ${phone}`);
-      }
       const updatedLead = await this.leadsService.findOne(lead.id);
       this.leadsGateway.emitLeadUpdated(updatedLead);
       return;
@@ -297,14 +296,13 @@ export class EvolutionController {
       }
       // Boleto — notifica operador via WhatsApp + etiqueta no card
       this.logger.log(`⏳ [LIA] Boleto — notificando operador para ${phone}`);
-      await this.leadsService.toggleAi(lead.id, false);
       const existingLabels: string[] = lead.labels ?? [];
       if (!existingLabels.includes('boleto')) {
         await this.applyTagsToLead(phone, ['boleto']);
         await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
       }
       // Notificação para o operador
-      const operadorPhone = '5571992867765';
+      const operadorPhone = '5527996972230';
       const clientName = lead.name || 'Sem nome';
       const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
       this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>

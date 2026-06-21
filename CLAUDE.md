@@ -8,6 +8,8 @@ CRM com IA para a **Zelar** — empresa de cuidados domiciliares, hospitalares, 
 
 Projeto copiado do fisio-secretary. **Refatorado em 2026-06-10** para agente único (LIA) — toda a lógica de múltiplos agentes (Clara/Sofia/Lindona), Google Calendar e agendamentos foi removida. O foco atual é o **Fluxo 3 (Curso de Cuidador)** do documento `fluxo_zelar.docx`.
 
+**Deploy em produção (2026-06-17):** backend no Railway (`zelar-production.up.railway.app`), frontend no Vercel.
+
 ---
 
 ## Stack
@@ -60,29 +62,31 @@ ngrok http 3001
 ## Variáveis de ambiente (backend/.env)
 
 ```env
-SUPABASE_DATABASE_URL=postgresql://postgres:3WMzt8RkWAHlBnFt@db.hzurwsbacvhcmochhnmk.supabase.co:5432/postgres
+SUPABASE_DATABASE_URL=postgresql://postgres.hzurwsbacvhcmochhnmk:...@aws-1-us-east-2.pooler.supabase.com:5432/postgres
 SUPABASE_URL=https://hzurwsbacvhcmochhnmk.supabase.co
-SUPABASE_ANON_KEY=placeholder
-SUPABASE_SERVICE_ROLE_KEY=placeholder
+SUPABASE_SERVICE_ROLE_KEY=...
 SUPABASE_STORAGE_BUCKET=zelar-media
 
-PORT=3001
-SERVER_URL=https://flashy-nonaesthetical-emory.ngrok-free.app  # atualizar quando ngrok reiniciar
+SERVER_URL=https://zelar-production.up.railway.app  # produção Railway
 
 WHATSAPP_PROVIDER=uazapi
 UAZAPI_BASE_URL=https://labsai.uazapi.com
-UAZAPI_ADMIN_TOKEN=dUVjbKKElU68hEwynKyfw1CDi9emSQ11Ja3DD7BRkw2Rd9bfmo
+UAZAPI_ADMIN_TOKEN=...   # para criar/gerenciar instâncias via Settings
+UAZAPI_TOKEN=...         # fallback — token da instância (salvo no banco após conectar)
+OPERATOR_PHONES=5527997885752  # mensagens desse número são ignoradas pela IA
 
 GEMINI_API_KEY=...       # fallback da IA (Gemini 2.5 Flash Lite)
 OPENROUTER_API_KEY=...   # IA principal (gpt-oss-120b:free)
-OPENAI_API_KEY=...       # ainda usado por STT (Whisper) e TTS (tts-1-hd)
-ELEVENLABS_API_KEY=...   # TTS alternativo — $6/mês, melhor qualidade, plano pago necessário
-ELEVENLABS_VOICE_ID=PznTnBc8X6pvixs9UkQm
+OPENAI_API_KEY=...       # STT (Whisper) e TTS (tts-1-hd)
+
+INFINITPAY_HANDLE=zelarsaudeecuidado   # handle InfinitPay da cliente
+INFINITPAY_COURSE_PRICE=50000          # valor em centavos (R$ 500,00)
+INFINITPAY_COURSE_NAME=Curso de Cuidador Zelar
 ```
 
-**Frontend (.env):**
+**Frontend (.env / Vercel):**
 ```env
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=https://zelar-production.up.railway.app
 ```
 
 ---
@@ -108,30 +112,57 @@ novo_lead → em_atendimento → aguardando_pagamento → pagamento_confirmado �
 ```
 Boas-vindas → apresenta curso ([NEXT] separa blocos) → forma de pagamento
   ↓
-PIX:    action="send_media", mediaName="pix-cora" (imagem do banco) → aguardando_pagamento
-Débito/Crédito: link InfinitePay → aguardando_pagamento
-Boleto: contato Lícia → aguardando_pagamento
-  ↓
-IA PAUSA (toggleAi false) — operador confirma manualmente
+PIX:    action="send_media", mediaName="pix-cora" → envia imagem + dados PIX ([NEXT]) → aguardando_pagamento
+        IA pausa (toggleAi false) — operador confirma manualmente
+Cartão: action="aguardar_confirmacao_pagamento" → gera link InfinitPay automático → aguardando_pagamento
+        IA pausa (toggleAi false)
+Boleto: action="aguardar_boleto" → LIA diz para aguardar + notifica operador (5527997885752) via WhatsApp
+        Operador emite e envia boleto manualmente → aguardando_pagamento
   ↓
 Operador clica "Confirmar Pagamento" no card (raia aguardando_pagamento)
   → POST /leads/:id/confirm-payment
   → stage=pagamento_confirmado, reativa IA, LIA envia link do Google Forms automaticamente
   ↓
+Follow-up automático (configurável em Settings): após X minutos pergunta se preencheu o formulário
+  ↓
 Lead preenche → avisa → stage=matriculado
 ```
 
 ### Confirmação manual de pagamento
-- **Sem integração de checkout automático** — operador confirma tudo manualmente (decisão de escopo MVP)
 - Botão "Confirmar Pagamento" aparece no `LeadCard.jsx` só quando `stage === 'aguardando_pagamento'`
-- Endpoint `POST /leads/:id/confirm-payment` em `leads.controller.ts`: muda stage, reativa IA, dispara mensagem da LIA com o formulário
+- Endpoint `POST /leads/:id/confirm-payment` em `leads.controller.ts`: muda stage, reativa IA, dispara formulário
 - `LeadsModule` ↔ `EvolutionModule` usam `forwardRef()` (dependência circular)
+- **InfinitPay** confirma cartão automaticamente via webhook `POST /webhooks/infinitpay`
+- **Boleto**: manual — operador recebe notificação WhatsApp e envia boleto diretamente ao cliente
+
+### Follow-up automático
+- Configurável em Settings: tempo (30min/1h/2h/3h) + mensagem personalizada
+- Job roda a cada 5min — dispara para leads em `pagamento_confirmado` sem `followupSentAt`
+- Enviado **uma única vez** por lead
+- Campos no banco: `whatsapp_config.followup_delay_minutes`, `whatsapp_config.followup_message`, `leads.followup_sent_at`
+
+### Actions do prompt LIA
+- `send_media` + `mediaName="pix-cora"` → envia imagem + blocos [NEXT] extras
+- `aguardar_confirmacao_pagamento` → gera link InfinitPay (cartão)
+- `aguardar_boleto` → notifica operador (boleto manual)
+- `none` → resposta normal de texto
+
+### Proteção de stage
+- IA só **avança** stage — nunca regride
+- Regressão é exclusiva do operador via drag-and-drop no Kanban
+- Nome do lead só é atualizado se ainda não tem nome (evita sobrescrever por terceiros)
+
+### Filtro de operadores (`OPERATOR_PHONES`)
+- Mensagens recebidas de números listados são ignoradas pela IA
+- Número atual: `5527997885752` (operadora da Zelar)
 
 ### Envio de imagem (PIX)
-- Imagem do PIX deve estar cadastrada em mídias com nome exato **`pix-cora`**
-- Prompt usa instrução técnica estruturada: `→ action="send_media", mediaName="pix-cora"` (Gemini Lite não entende instrução em linguagem natural livre)
+- Imagem cadastrada em mídias com nome exato **`pix-cora`**
+- Reply da IA contém legenda + [NEXT] + dados PIX — o backend separa e envia em blocos
+- Blocos filtram descrições de imagem geradas pela IA (`📎`, `[imagem...`)
 
-### Número WhatsApp da Zelar: `27996972230` (instância: Batista Solucao IA)
+### Número WhatsApp da Zelar: `27999234193` (instância conectada em produção)
+### Operadora: `27997885752` — recebe notificações de boleto e é filtrada pelo `OPERATOR_PHONES`
 
 ---
 
@@ -210,36 +241,33 @@ zelar/
 
 - ✅ Agente único LIA (OpenRouter principal + Gemini Flash Lite fallback automático)
 - ✅ **Fluxo 3 (Curso de Cuidador)** completo: apresentação → pagamento → confirmação → matrícula
-- ✅ Envio de imagem do PIX via mídia cadastrada (`pix-cora`)
-- ✅ **Integração InfinitPay** — cartão gera link automático via `POST /api.checkout.infinitepay.io/links`
+- ✅ PIX: envia imagem `pix-cora` + dados bancários em blocos [NEXT] separados
+- ✅ **Integração InfinitPay** — cartão gera link automático (`handle=zelarsaudeecuidado`)
   - `order_nsu = lead.id` para rastrear quem pagou
   - Webhook `POST /webhooks/infinitpay` valida com `/payment_check` e confirma automaticamente
-  - Página de redirecionamento pós-pagamento (`GET /webhooks/infinitpay/redirect`) com botão WhatsApp
-  - Sem token/API key — autenticação só pelo `handle` no body
-  - Boleto: permanece manual (Lícia), aplica etiqueta 🧾 **boleto** no card
-- ✅ Botão "Confirmar Pagamento" no card com **modal de confirmação** + endpoint `POST /leads/:id/confirm-payment`
-- ✅ IA pausa após enviar pagamento, retoma automática após confirmar
+  - Página de redirecionamento pós-pagamento com botão WhatsApp
+- ✅ **Boleto manual**: action `aguardar_boleto` — LIA avisa cliente, operadora recebe notificação WhatsApp
+- ✅ **Follow-up automático** após pagamento confirmado — tempo e mensagem configuráveis em Settings
+- ✅ Botão "Confirmar Pagamento" no card com modal de confirmação
+- ✅ IA só avança stage — regressão exclusiva do operador no Kanban
+- ✅ Nome do lead protegido contra sobrescrita por terceiros
+- ✅ Filtro `OPERATOR_PHONES` — IA ignora mensagens do número da operadora
+- ✅ LeadModal atualiza mensagens em tempo real via WebSocket (`lead:updated`)
 - ✅ Kanban com 6 colunas do fluxo Zelar
-- ✅ STT via uazapi (Whisper) — sempre responde em **texto** mesmo quando lead manda áudio
+- ✅ STT via uazapi (Whisper)
 - ✅ Isolamento de instâncias (global webhook desativado + validação de token)
 - ✅ Supabase isolado (banco separado do fisio-secretary)
-- ✅ Prompt da LIA editável na página de Settings (`customPromptLia`) — botão "Restaurar padrão" removido
-- ✅ `DEFAULT_PROMPT_LIA` no código sincronizado com o prompt do banco (2026-06-11)
-- ✅ Instância conectada: `27996972230` (Batista Solucao IA)
-- ✅ `LeadStage` atualizado com stages reais: `aguardando_pagamento | pagamento_confirmado | matriculado`
-- ✅ `OPENAI_API_KEY` adicionada ao `.env` (necessária para transcrição Whisper via uazapi)
+- ✅ Prompt da LIA editável na página de Settings (`customPromptLia`)
+- ✅ Deploy em produção: Railway (backend) + Vercel (frontend)
 
 ---
 
 ## Pendências
 
-- [ ] Cadastrar imagem `pix-cora` nas mídias (se ainda não estiver)
-- [ ] Preencher dados reais no prompt do Fluxo 3: carga horária e modalidade (valor já está R$ 500,00)
 - [ ] **Fluxo 1 (Cuidador domiciliar/hospitalar)** — próximo foco
   - LIA coleta dados + classifica Simples/Médio/Complexo automaticamente
   - 8 imagens de catálogo para cadastrar nas mídias
   - Pagamento via InfinitPay (já integrado)
-  - Seleção de cuidador: MVP manual pelo operador; Fase 2 → broadcast com botão + Google Agenda
+  - Seleção de cuidador: MVP manual pelo operador
 - [ ] Fluxos 2 (trabalhar) e 4 (jurídico) — já no prompt, só testar
 - [ ] Drag-and-drop no Kanban para mover cards manualmente entre colunas
-- [ ] Fase 2 Fluxo 1: tabela de cuidadores + broadcast com botão WhatsApp (quem apertar primeiro leva) + consulta Google Agenda para disponibilidade

@@ -118,6 +118,8 @@ export class LeadsService implements OnApplicationBootstrap {
     const lead = await this.leadsRepo.findOneOrFail({ where: { id: leadId } });
     const fromStage = lead.stage;
 
+    if (fromStage === toStage) return lead;
+
     lead.stage = toStage;
     await this.leadsRepo.save(lead);
 

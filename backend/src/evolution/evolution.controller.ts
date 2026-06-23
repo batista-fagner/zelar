@@ -298,8 +298,12 @@ export class EvolutionController implements OnModuleInit {
         if (aiResponse.stage && aiResponse.stage !== lead.stage) {
           await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
         }
-        // Após enviar PIX, pausa IA aguardando confirmação do operador
-        await this.leadsService.toggleAi(lead.id, false);
+        // Pausa a IA apenas para mídia de pagamento (PIX), aguardando confirmação do operador.
+        // Mídias informativas (ex: catálogo do curso) NÃO pausam a IA.
+        const isPaymentMedia = aiResponse.mediaName === 'pix-cora';
+        if (isPaymentMedia) {
+          await this.leadsService.toggleAi(lead.id, false);
+        }
         aiResponse.reply = ''; // Limpa para não enviar em duplicado
       } else {
         this.logger.warn(`[LIA] Mídia "${aiResponse.mediaName}" não encontrada no banco`);

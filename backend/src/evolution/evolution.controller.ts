@@ -77,6 +77,14 @@ export class EvolutionController implements OnModuleInit {
       return { ok: true };
     }
 
+    // Modo de teste: se ALLOWED_PHONES estiver configurado, só atende esses números
+    const allowedPhones = (this.configService.get<string>('ALLOWED_PHONES') ?? '')
+      .split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
+    if (allowedPhones.length > 0 && !allowedPhones.includes(phone)) {
+      this.logger.debug(`Webhook ignorado — modo teste ativo, número não permitido: ${phone}`);
+      return { ok: true };
+    }
+
     if (!phone || (!text && !isAudio)) {
       this.logger.warn(`Webhook ignorado — phone="${phone}", text="${text}", type="${message.type}", mediaType="${message.mediaType}"`);
       return { ok: true };

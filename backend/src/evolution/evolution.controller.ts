@@ -237,6 +237,7 @@ export class EvolutionController implements OnModuleInit {
       const f = aiResponse.fields;
       // Só atualiza nome se o lead ainda não tem um nome definido
       if (f.name && !lead.name) updateData.name = f.name;
+      if (f.cpf && !(lead as any).cpf) updateData.cpf = f.cpf;
       if (f.qualificationScore !== undefined) updateData.qualificationScore = f.qualificationScore;
       if (f.qualificationStep !== undefined) updateData.qualificationStep = f.qualificationStep;
     }
@@ -318,9 +319,10 @@ export class EvolutionController implements OnModuleInit {
         await this.applyTagsToLead(phone, ['boleto']);
         await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
       }
-      const operadorPhone = '5527997885752';
-      const clientName = lead.name || 'Sem nome';
-      const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
+      const operadorPhone = '5527996972230';
+      const clientName = aiResponse.fields?.name || lead.name || 'Sem nome';
+      const clientCpf = aiResponse.fields?.cpf || (lead as any).cpf || 'Não informado';
+      const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n🪪 CPF: ${clientCpf}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
       this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
         this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
       );

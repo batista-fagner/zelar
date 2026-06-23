@@ -78,6 +78,9 @@ export class Lead {
   @Column({ name: 'followup_sent_at', nullable: true, type: 'timestamp' })
   followupSentAt: Date | null;
 
+  @Column({ nullable: true, type: 'varchar' })
+  cpf: string | null;
+
   @Column({ type: 'jsonb', default: [] })
   labels: string[];
 

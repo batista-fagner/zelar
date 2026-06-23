@@ -16,6 +16,7 @@ export interface AiResponse {
   shouldIgnore?: boolean;
   fields?: {
     name?: string;
+    cpf?: string;
     qualificationScore?: number;
     qualificationStep?: number;
   };
@@ -47,6 +48,7 @@ async function callWithRetry<T>(
 function buildLeadContext(lead: Lead): string {
   const lines: string[] = [];
   if (lead.name) lines.push(`- Nome: ${lead.name}`);
+  if ((lead as any).cpf) lines.push(`- CPF: ${(lead as any).cpf}`);
   if (lead.stage) lines.push(`- Stage atual: ${lead.stage}`);
   if (lines.length === 0) return '';
   return `\n\n════ DADOS DO CONTATO ════\n${lines.join('\n')}\n══════════════════════════`;
@@ -65,6 +67,7 @@ RESPONDA SEMPRE em JSON com este formato exato (sem markdown, sem código, só o
   "shouldIgnore": false,
   "fields": {
     "name": "nome se coletado ou null",
+    "cpf": "CPF do cliente se coletado ou null",
     "qualificationScore": 0,
     "qualificationStep": 0
   }

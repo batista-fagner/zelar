@@ -83,13 +83,16 @@ export class UazapiProvider implements IWhatsAppProvider {
 
   async transcribeAudio(messageId: string, token?: string): Promise<string> {
     const useToken = await this.resolveToken(token);
+    const openaiKey = this.config.get('OPENAI_API_KEY') ?? '';
+    this.logger.log(`[TRANSCRIBE] messageId=${messageId}, openai_key_set=${!!openaiKey}, key_prefix=${openaiKey.substring(0, 8)}`);
     const response = await firstValueFrom(
       this.http.post(
         `${this.baseUrl}/message/download`,
-        { id: messageId, transcribe: true, generate_mp3: false, return_link: false, openai_apikey: this.config.get('OPENAI_API_KEY') },
+        { id: messageId, transcribe: true, generate_mp3: false, return_link: false, openai_apikey: openaiKey },
         { headers: { token: useToken } },
       ),
     );
+    this.logger.log(`[TRANSCRIBE] resposta uazapi: ${JSON.stringify(response.data).substring(0, 200)}`);
     return (response.data as any).transcription ?? '';
   }
 

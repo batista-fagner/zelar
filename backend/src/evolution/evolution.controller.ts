@@ -80,9 +80,18 @@ export class EvolutionController implements OnModuleInit {
     // Modo de teste: se ALLOWED_PHONES estiver configurado, só atende esses números
     const allowedPhones = (this.configService.get<string>('ALLOWED_PHONES') ?? '')
       .split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
-    if (allowedPhones.length > 0 && !allowedPhones.includes(phone)) {
-      this.logger.debug(`Webhook ignorado — modo teste ativo, número não permitido: ${phone}`);
-      return { ok: true };
+    if (allowedPhones.length > 0) {
+      // Normaliza para comparar: adiciona o 9 após DDD se número brasileiro sem o nono dígito
+      const normalizePhone = (p: string) => {
+        if (p.startsWith('55') && p.length === 12) return `${p.slice(0, 4)}9${p.slice(4)}`;
+        return p;
+      };
+      const normalizedPhone = normalizePhone(phone);
+      const isAllowed = allowedPhones.some(a => a === phone || a === normalizedPhone || normalizePhone(a) === phone);
+      if (!isAllowed) {
+        this.logger.debug(`Webhook ignorado — modo teste ativo, número não permitido: ${phone}`);
+        return { ok: true };
+      }
     }
 
     if (!phone || (!text && !isAudio)) {

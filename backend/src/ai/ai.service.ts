@@ -244,6 +244,7 @@ export class AiService {
   private readonly openrouterKey: string;
   private readonly openrouterModel = 'openai/gpt-oss-120b:free';
   private readonly geminiModel = 'gemini-2.5-flash-lite';
+  private readonly geminiModelFallback = 'gemini-2.5-flash';
 
   constructor(private config: ConfigService) {
     this.genai = new GoogleGenerativeAI(config.get('GEMINI_API_KEY') ?? '');
@@ -266,11 +267,18 @@ export class AiService {
     //   this.logger.warn(`⚠️ [LIA] OpenRouter falhou (${err.message}) — caindo para Gemini Flash Lite`);
     // }
 
-    // Fallback: Gemini Flash Lite
+    // 1º fallback: Gemini Flash Lite
     try {
-      return await this.callGemini(systemPrompt, history, incomingText);
+      return await this.callGemini(systemPrompt, history, incomingText, this.geminiModel);
     } catch (err) {
-      this.logger.error(`❌ [LIA] Gemini (fallback) também falhou: ${err.message}`);
+      this.logger.warn(`⚠️ [LIA] Gemini Flash Lite falhou (${err.message}) — caindo para Gemini Flash`);
+    }
+
+    // 2º fallback: Gemini Flash
+    try {
+      return await this.callGemini(systemPrompt, history, incomingText, this.geminiModelFallback);
+    } catch (err) {
+      this.logger.error(`❌ [LIA] Gemini Flash (2º fallback) também falhou: ${err.message}`);
       return { reply: 'Olá! Tive um probleminha aqui, pode repetir? 😊', success: false };
     }
   }
@@ -307,14 +315,14 @@ export class AiService {
     return parseAiJson(raw);
   }
 
-  private async callGemini(systemPrompt: string, history: any[], incomingText: string): Promise<AiResponse> {
+  private async callGemini(systemPrompt: string, history: any[], incomingText: string, modelName = this.geminiModel): Promise<AiResponse> {
     const geminiHistory = history.map((m: any) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
 
     const model = this.genai.getGenerativeModel({
-      model: this.geminiModel,
+      model: modelName,
       systemInstruction: systemPrompt,
     });
 
@@ -326,7 +334,7 @@ export class AiService {
 
     const raw = result.response.text().trim();
     if (!raw) throw new Error('Resposta vazia do Gemini');
-    this.logger.debug(`[LIA/Gemini] Resposta bruta: ${raw}`);
+    this.logger.debug(`[LIA/Gemini(${modelName})] Resposta bruta: ${raw}`);
     return parseAiJson(raw);
   }
 

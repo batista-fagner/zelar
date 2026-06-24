@@ -259,12 +259,12 @@ export class AiService {
     const basePrompt = customPrompt ?? DEFAULT_PROMPT_LIA;
     const systemPrompt = `${basePrompt}${JSON_FORMAT_LIA}${buildLeadContext(lead)}`;
 
-    // 1ª tentativa: OpenRouter (modelo gratuito)
-    try {
-      return await this.callOpenRouter(systemPrompt, history, incomingText);
-    } catch (err) {
-      this.logger.warn(`⚠️ [LIA] OpenRouter falhou (${err.message}) — caindo para Gemini Flash Lite`);
-    }
+    // 1ª tentativa: OpenRouter (modelo gratuito) — comentado temporariamente para teste
+    // try {
+    //   return await this.callOpenRouter(systemPrompt, history, incomingText);
+    // } catch (err) {
+    //   this.logger.warn(`⚠️ [LIA] OpenRouter falhou (${err.message}) — caindo para Gemini Flash Lite`);
+    // }
 
     // Fallback: Gemini Flash Lite
     try {

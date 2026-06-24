@@ -27,6 +27,7 @@ async function callWithRetry<T>(
   logger: Logger,
   attempts = 3,
   delaysMs = [1000, 2000],
+  label = 'LLM',
 ): Promise<T> {
   for (let i = 0; i < attempts; i++) {
     try {
@@ -35,7 +36,7 @@ async function callWithRetry<T>(
       const isRetryable = err?.status === 429 || err?.status === 503 || /overload|rate_limit/i.test(err?.message ?? '');
       if (isRetryable && i < attempts - 1) {
         const wait = delaysMs[i] ?? 2000;
-        logger.warn(`OpenRouter rate limited (tentativa ${i + 1}/${attempts}) — aguardando ${wait}ms`);
+        logger.warn(`${label} rate limited (tentativa ${i + 1}/${attempts}) — aguardando ${wait}ms`);
         await new Promise(r => setTimeout(r, wait));
         continue;
       }

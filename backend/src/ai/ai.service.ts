@@ -231,7 +231,18 @@ REGRA DE STAGE: use "novo_lead" apenas na primeira resposta. A partir da segunda
 function parseAiJson(raw: string): AiResponse {
   let cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Resposta sem JSON válido');
+  if (!jsonMatch) {
+    // Modelo respondeu em texto puro (ignorou o formato JSON) — usa o texto como reply
+    const text = cleaned.trim();
+    if (!text) throw new Error('Resposta vazia do modelo');
+    return {
+      reply: text,
+      stage: undefined,
+      action: 'none',
+      success: true,
+      rawJson: JSON.stringify({ reply: text, action: 'none' }),
+    } as AiResponse;
+  }
   const parsed: AiResponse = JSON.parse(jsonMatch[0]);
   parsed.success = true;
   parsed.rawJson = jsonMatch[0];

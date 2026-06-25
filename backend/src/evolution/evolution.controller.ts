@@ -292,7 +292,7 @@ export class EvolutionController implements OnModuleInit {
       aiResponse.stage = 'em_atendimento';
     }
 
-    // Atualiza stage com proteção contra regressão
+    // Atualiza stage com proteção contra regressão e contra avanço indevido
     if (aiResponse.stage && aiResponse.stage !== lead.stage) {
       const stageOrder: Record<string, number> = {
         novo_lead: 0, em_atendimento: 1, aguardando_pagamento: 2,
@@ -300,21 +300,25 @@ export class EvolutionController implements OnModuleInit {
       };
       const currentOrder = stageOrder[lead.stage] ?? 0;
       const newOrder = stageOrder[aiResponse.stage] ?? 0;
-      const canRegress = aiResponse.stage === 'perdido';
 
-      // pagamento_confirmado só pode ser setado pela IA se o lead já passou por aguardando_pagamento
-      const requiresPriorStage: Partial<Record<string, string>> = {
-        pagamento_confirmado: 'aguardando_pagamento',
-        matriculado: 'pagamento_confirmado',
-      };
-      const requiredPrior = requiresPriorStage[aiResponse.stage];
-      const priorSatisfied = !requiredPrior || stageOrder[lead.stage] >= stageOrder[requiredPrior];
-
-      this.logger.log(`[STAGE] ${lead.stage}(${currentOrder}) → ${aiResponse.stage}(${newOrder})`);
-      if (newOrder > currentOrder && priorSatisfied) {
-        await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+      // pagamento_confirmado é EXCLUSIVO do operador (botão CRM) ou webhook InfinitPay.
+      // A IA nunca pode setar este stage diretamente, mesmo que o cliente diga que pagou.
+      if (aiResponse.stage === 'pagamento_confirmado') {
+        this.logger.warn(`[STAGE] Bloqueado pela IA: tentativa de setar pagamento_confirmado — exclusivo do operador/webhook`);
       } else {
-        this.logger.warn(`[STAGE] Bloqueado pela IA: ${lead.stage} → ${aiResponse.stage} (regressão ou stage anterior obrigatório não atingido)`);
+        // pagamento_confirmado só pode ser setado pela IA se o lead já passou por aguardando_pagamento
+        const requiresPriorStage: Partial<Record<string, string>> = {
+          matriculado: 'pagamento_confirmado',
+        };
+        const requiredPrior = requiresPriorStage[aiResponse.stage];
+        const priorSatisfied = !requiredPrior || stageOrder[lead.stage] >= stageOrder[requiredPrior];
+
+        this.logger.log(`[STAGE] ${lead.stage}(${currentOrder}) → ${aiResponse.stage}(${newOrder})`);
+        if (newOrder > currentOrder && priorSatisfied) {
+          await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+        } else {
+          this.logger.warn(`[STAGE] Bloqueado pela IA: ${lead.stage} → ${aiResponse.stage} (regressão ou stage anterior obrigatório não atingido)`);
+        }
       }
     }
 

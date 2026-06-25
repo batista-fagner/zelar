@@ -226,6 +226,32 @@ export class EvolutionController implements OnModuleInit {
       return;
     }
 
+    // Helper: extrai apenas os dígitos (usado para CPF)
+    const onlyDigits = (s?: string | null) => (s ?? '').replace(/\D/g, '');
+
+    // GUARD BOLETO (rede de segurança no backend — não confia 100% no prompt):
+    // só dispara o boleto quando houver NOME COMPLETO (2+ palavras) + CPF com 11 dígitos.
+    // Caso contrário, neutraliza a action, não notifica o operador, não avança o stage
+    // e pede o dado faltante.
+    if (aiResponse.action === 'aguardar_boleto') {
+      const cpfDigits = onlyDigits(aiResponse.fields?.cpf || (lead as any).cpf);
+      const effectiveName = (aiResponse.fields?.name || lead.name || '').trim();
+      const hasFullName = effectiveName.split(/\s+/).filter(Boolean).length >= 2;
+      const cpfValid = cpfDigits.length === 11;
+
+      if (!hasFullName || !cpfValid) {
+        this.logger.warn(`[BOLETO] Bloqueado — nomeOk=${hasFullName} cpf=${cpfDigits.length} dígitos. Pedindo correção.`);
+        if (aiResponse.fields) aiResponse.fields.cpf = null as any; // não persiste CPF inválido
+        aiResponse.action = 'none';
+        aiResponse.stage = undefined;
+        aiResponse.reply = !hasFullName
+          ? 'Para emitir o boleto, primeiro me diz seu nome completo, por favor 😊'
+          : 'Quase lá! Agora me confirma só os 11 números do seu CPF 😊';
+      } else if (aiResponse.fields) {
+        aiResponse.fields.cpf = cpfDigits; // normaliza para só dígitos antes de salvar/notificar
+      }
+    }
+
     // Atualiza contexto e campos do lead
     const updatedContext = aiResponse.success
       ? this.aiService.buildUpdatedContext(lead, combinedText, aiResponse.rawJson!)
@@ -235,9 +261,11 @@ export class EvolutionController implements OnModuleInit {
     if (aiResponse.temperature) updateData.temperature = aiResponse.temperature;
     if (aiResponse.fields) {
       const f = aiResponse.fields;
-      // Só atualiza nome se o lead ainda não tem um nome definido
-      if (f.name && !lead.name) updateData.name = f.name;
-      if (f.cpf && !(lead as any).cpf) updateData.cpf = f.cpf;
+      // Atualiza nome se o lead ainda não tem um, OU se a IA trouxe uma versão
+      // mais completa (mais palavras) — necessário para coletar nome completo no boleto.
+      const wordCount = (s?: string | null) => (s ?? '').trim().split(/\s+/).filter(Boolean).length;
+      if (f.name && (!lead.name || wordCount(f.name) > wordCount(lead.name))) updateData.name = f.name;
+      if (f.cpf && !(lead as any).cpf) updateData.cpf = onlyDigits(f.cpf);
       if (f.qualificationScore !== undefined) updateData.qualificationScore = f.qualificationScore;
       if (f.qualificationStep !== undefined) updateData.qualificationStep = f.qualificationStep;
     }

@@ -230,22 +230,25 @@ export class EvolutionController implements OnModuleInit {
     const onlyDigits = (s?: string | null) => (s ?? '').replace(/\D/g, '');
 
     // GUARD BOLETO (rede de segurança no backend — não confia 100% no prompt):
-    // só dispara o boleto quando houver NOME COMPLETO (2+ palavras) + CPF com 11 dígitos.
-    // Caso contrário, neutraliza a action, não notifica o operador, não avança o stage
-    // e pede o dado faltante.
+    // só dispara o boleto quando houver nome (qualquer) + CPF com 11 dígitos.
+    // Se CPF for válido mas nome faltar, salva o CPF e pede o nome (não descarta o CPF).
+    // Se CPF for inválido, descarta e pede de novo.
     if (aiResponse.action === 'aguardar_boleto') {
       const cpfDigits = onlyDigits(aiResponse.fields?.cpf || (lead as any).cpf);
       const effectiveName = (aiResponse.fields?.name || lead.name || '').trim();
-      const hasFullName = effectiveName.split(/\s+/).filter(Boolean).length >= 2;
+      const hasName = effectiveName.length > 0;
       const cpfValid = cpfDigits.length === 11;
 
-      if (!hasFullName || !cpfValid) {
-        this.logger.warn(`[BOLETO] Bloqueado — nomeOk=${hasFullName} cpf=${cpfDigits.length} dígitos. Pedindo correção.`);
-        if (aiResponse.fields) aiResponse.fields.cpf = null as any; // não persiste CPF inválido
+      if (!hasName || !cpfValid) {
+        this.logger.warn(`[BOLETO] Bloqueado — nomeOk=${hasName} cpf=${cpfDigits.length} dígitos. Pedindo correção.`);
+        if (aiResponse.fields) {
+          // Preserva CPF válido para não perder entre turnos; descarta somente se inválido
+          aiResponse.fields.cpf = cpfValid ? cpfDigits : (null as any);
+        }
         aiResponse.action = 'none';
         aiResponse.stage = undefined;
-        aiResponse.reply = !hasFullName
-          ? 'Para emitir o boleto, primeiro me diz seu nome completo, por favor 😊'
+        aiResponse.reply = !hasName
+          ? 'Para emitir o boleto, primeiro me diz seu nome, por favor 😊'
           : 'Quase lá! Agora me confirma só os 11 números do seu CPF 😊';
       } else if (aiResponse.fields) {
         aiResponse.fields.cpf = cpfDigits; // normaliza para só dígitos antes de salvar/notificar
@@ -299,11 +302,19 @@ export class EvolutionController implements OnModuleInit {
       const newOrder = stageOrder[aiResponse.stage] ?? 0;
       const canRegress = aiResponse.stage === 'perdido';
 
+      // pagamento_confirmado só pode ser setado pela IA se o lead já passou por aguardando_pagamento
+      const requiresPriorStage: Partial<Record<string, string>> = {
+        pagamento_confirmado: 'aguardando_pagamento',
+        matriculado: 'pagamento_confirmado',
+      };
+      const requiredPrior = requiresPriorStage[aiResponse.stage];
+      const priorSatisfied = !requiredPrior || stageOrder[lead.stage] >= stageOrder[requiredPrior];
+
       this.logger.log(`[STAGE] ${lead.stage}(${currentOrder}) → ${aiResponse.stage}(${newOrder})`);
-      if (newOrder > currentOrder) {
+      if (newOrder > currentOrder && priorSatisfied) {
         await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
       } else {
-        this.logger.warn(`[STAGE] Bloqueado pela IA: ${lead.stage} → ${aiResponse.stage} (só operador pode regredir)`);
+        this.logger.warn(`[STAGE] Bloqueado pela IA: ${lead.stage} → ${aiResponse.stage} (regressão ou stage anterior obrigatório não atingido)`);
       }
     }
 

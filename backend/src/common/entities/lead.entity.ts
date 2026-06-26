@@ -10,6 +10,8 @@ export type LeadStage = 'novo_lead' | 'em_atendimento' | 'aguardando_pagamento' 
 
 export type LeadTemperature = 'quente' | 'morno' | 'frio';
 
+export type ActiveFlow = 'roteador' | 'fluxo_1' | 'fluxo_2' | 'fluxo_3' | 'fluxo_4';
+
 @Entity('leads')
 export class Lead {
   @PrimaryGeneratedColumn('uuid')
@@ -48,8 +50,13 @@ export class Lead {
   @Column({ name: 'qualification_step', default: 0 })
   qualificationStep: number;
 
-  @Column({ name: 'ai_context', type: 'jsonb', default: [] })
-  aiContext: object[];
+  // Contexto da IA isolado por fluxo: { roteador: [...], fluxo_3: [...] }.
+  // Leads legados podem ter formato de array (single LIA) — normalizado em runtime.
+  @Column({ name: 'ai_context', type: 'jsonb', default: {} })
+  aiContext: Record<string, any[]> | object[];
+
+  @Column({ name: 'active_flow', type: 'varchar', nullable: true })
+  activeFlow: ActiveFlow | null;
 
   @Column({ name: 'nurture_step', default: 0 })
   nurtureStep: number;

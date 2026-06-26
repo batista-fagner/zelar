@@ -90,15 +90,16 @@ export class LeadsController {
 
     const updatedLead = await this.leadsService.findOne(id);
     if (!updatedLead) return { ok: false };
-    const aiResponse = await this.aiService.processMessageLia(
+    const aiResponse = await this.aiService.processFlow(
       updatedLead,
       confirmationMsg,
-      instanceConfig?.customPromptLia ?? undefined,
+      'fluxo_3',
+      instanceConfig?.promptFluxo3 ?? instanceConfig?.customPromptLia ?? undefined,
     );
 
     if (aiResponse.success && aiResponse.reply) {
       await this.evolutionService.sendTextMessage(lead.phone, aiResponse.reply);
-      const context = this.aiService.buildUpdatedContext(updatedLead, confirmationMsg, aiResponse.rawJson!);
+      const context = this.aiService.buildUpdatedContext(updatedLead, 'fluxo_3', confirmationMsg, aiResponse.rawJson!);
       await this.leadsService.update(id, { aiContext: context } as any);
     }
 

@@ -26,8 +26,25 @@ export class WhatsappConfig {
   @Column({ name: 'webhook_url', nullable: true, type: 'text' })
   webhookUrl: string;
 
+  // Prompt legado (agente único) — mantido para compatibilidade/backup
   @Column({ name: 'custom_prompt_lia', nullable: true, type: 'text' })
   customPromptLia: string | null;
+
+  // Prompts por agente (multiagente)
+  @Column({ name: 'prompt_roteador', nullable: true, type: 'text' })
+  promptRoteador: string | null;
+
+  @Column({ name: 'prompt_fluxo_1', nullable: true, type: 'text' })
+  promptFluxo1: string | null;
+
+  @Column({ name: 'prompt_fluxo_2', nullable: true, type: 'text' })
+  promptFluxo2: string | null;
+
+  @Column({ name: 'prompt_fluxo_3', nullable: true, type: 'text' })
+  promptFluxo3: string | null;
+
+  @Column({ name: 'prompt_fluxo_4', nullable: true, type: 'text' })
+  promptFluxo4: string | null;
 
   @Column({ name: 'followup_delay_minutes', nullable: true, type: 'int', default: 60 })
   followupDelayMinutes: number | null;

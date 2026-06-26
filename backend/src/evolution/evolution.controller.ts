@@ -7,7 +7,8 @@ import { MessageQueueService } from './message-queue.service';
 import { WhatsappConfigService } from './whatsapp-config.service';
 import { UazapiProvider } from './providers/uazapi.provider';
 import { LeadsService } from '../leads/leads.service';
-import { AiService } from '../ai/ai.service';
+import { AiService, AiResponse, FlowKey } from '../ai/ai.service';
+import { WhatsappConfig } from '../common/entities/whatsapp-config.entity';
 import { LeadsGateway } from '../leads/leads.gateway';
 import { CalendarService } from '../calendar/calendar.service';
 import { AudioService } from '../audio/audio.service';
@@ -166,6 +167,18 @@ export class EvolutionController implements OnModuleInit {
     });
   }
 
+  /** Seleciona o prompt customizado do fluxo (ou undefined para usar o default do código). */
+  private pickFlowPrompt(config: WhatsappConfig | null, flow: Exclude<FlowKey, 'roteador'>): string | undefined {
+    if (!config) return undefined;
+    switch (flow) {
+      case 'fluxo_1': return config.promptFluxo1 ?? undefined;
+      case 'fluxo_2': return config.promptFluxo2 ?? undefined;
+      // fluxo_3 cai para o prompt legado (customPromptLia) enquanto promptFluxo3 não for definido
+      case 'fluxo_3': return config.promptFluxo3 ?? config.customPromptLia ?? undefined;
+      case 'fluxo_4': return config.promptFluxo4 ?? undefined;
+    }
+  }
+
   private async processMessage(phone: string, combinedText: string, messageKeyId: string) {
     const { lead: leadInit, conversation } = await this.leadsService.findOrCreate(phone);
     let lead = leadInit;
@@ -204,10 +217,57 @@ export class EvolutionController implements OnModuleInit {
     // Mostra "digitando..." enquanto a IA processa
     void this.evolutionService.sendTypingIndicator(phone, 5000);
 
-    // Processa com LIA (Zelar)
+    // ROTEAMENTO MULTIAGENTE: determina qual agente conduz o atendimento
     const instanceConfig = await this.whatsappConfigService.get();
-    const aiResponse = await this.aiService.processMessageLia(lead, combinedText, instanceConfig?.customPromptLia ?? undefined);
-    this.logger.log(`LIA respondeu [stage=${aiResponse.stage}]: ${aiResponse.reply}`);
+    let flow = (lead.activeFlow ?? null) as Exclude<FlowKey, 'roteador'> | null;
+    let flowKeyForContext: FlowKey;
+    let aiResponse: AiResponse;
+
+    // Migração: leads legados (sem activeFlow) já em estágios de pagamento só podem
+    // estar no fluxo do curso — atribui fluxo_3 sem passar pelo roteador.
+    if (!flow && ['aguardando_pagamento', 'pagamento_confirmado', 'matriculado'].includes(lead.stage)) {
+      flow = 'fluxo_3';
+      await this.leadsService.update(lead.id, { activeFlow: flow } as any);
+      lead.activeFlow = flow;
+      this.logger.log(`[MIGRAÇÃO] ${phone} em ${lead.stage} → fluxo_3`);
+    }
+
+    if (!flow) {
+      const routed = await this.aiService.routeFlow(lead, combinedText, instanceConfig?.promptRoteador ?? undefined);
+      if (routed.flow && routed.flow !== 'roteador') {
+        flow = routed.flow as Exclude<FlowKey, 'roteador'>;
+        await this.leadsService.update(lead.id, { activeFlow: flow } as any);
+        lead.activeFlow = flow;
+        flowKeyForContext = flow;
+        this.logger.log(`[ROTEADOR] ${phone} → ${flow}`);
+        aiResponse = await this.aiService.processFlow(lead, combinedText, flow, this.pickFlowPrompt(instanceConfig, flow));
+      } else {
+        // Roteador respondeu com o menu — sem fluxo definido ainda
+        flowKeyForContext = 'roteador';
+        aiResponse = {
+          reply: routed.reply,
+          rawJson: routed.rawJson ?? JSON.stringify({ flow: 'none', reply: routed.reply }),
+          success: true,
+          action: 'none',
+        };
+        this.logger.log(`[ROTEADOR] ${phone} → menu (sem fluxo definido)`);
+      }
+    } else {
+      flowKeyForContext = flow;
+      aiResponse = await this.aiService.processFlow(lead, combinedText, flow, this.pickFlowPrompt(instanceConfig, flow));
+    }
+
+    // Transição de fluxo solicitada pelo especialista (ex: fluxo_2 → fluxo_3)
+    if (aiResponse.switchFlow && aiResponse.switchFlow !== lead.activeFlow) {
+      const validFlows: FlowKey[] = ['fluxo_1', 'fluxo_2', 'fluxo_3', 'fluxo_4'];
+      if (validFlows.includes(aiResponse.switchFlow)) {
+        await this.leadsService.update(lead.id, { activeFlow: aiResponse.switchFlow } as any);
+        lead.activeFlow = aiResponse.switchFlow;
+        this.logger.log(`[SWITCH] ${phone} → ${aiResponse.switchFlow}`);
+      }
+    }
+
+    this.logger.log(`LIA respondeu [flow=${flowKeyForContext}, stage=${aiResponse.stage}]: ${aiResponse.reply}`);
 
     // CAMADA DE SEGURANÇA: Se shouldIgnore=true, não responder e sair
     if (aiResponse.shouldIgnore === true) {
@@ -271,7 +331,7 @@ export class EvolutionController implements OnModuleInit {
 
     // Atualiza contexto e campos do lead
     const updatedContext = aiResponse.success
-      ? this.aiService.buildUpdatedContext(lead, combinedText, aiResponse.rawJson!)
+      ? this.aiService.buildUpdatedContext(lead, flowKeyForContext, combinedText, aiResponse.rawJson!)
       : lead.aiContext;
     const updateData: any = { aiContext: updatedContext };
 
@@ -603,15 +663,16 @@ export class EvolutionController implements OnModuleInit {
     const updatedLead = await this.leadsService.findOne(orderNsu);
     if (!updatedLead) return;
 
-    const aiResponse = await this.aiService.processMessageLia(
+    const aiResponse = await this.aiService.processFlow(
       updatedLead,
       confirmationMsg,
-      instanceConfig?.customPromptLia ?? undefined,
+      'fluxo_3',
+      this.pickFlowPrompt(instanceConfig, 'fluxo_3'),
     );
 
     if (aiResponse.success && aiResponse.reply) {
       await this.evolutionService.sendTextMessage(lead.phone, aiResponse.reply);
-      const context = this.aiService.buildUpdatedContext(updatedLead, confirmationMsg, aiResponse.rawJson!);
+      const context = this.aiService.buildUpdatedContext(updatedLead, 'fluxo_3', confirmationMsg, aiResponse.rawJson!);
       await this.leadsService.update(orderNsu, { aiContext: context } as any);
     }
 

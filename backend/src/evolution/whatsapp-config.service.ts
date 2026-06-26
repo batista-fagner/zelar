@@ -118,10 +118,22 @@ export class WhatsappConfigService {
     }
   }
 
-  async updateConfig(fields: { customPromptLia?: string | null }): Promise<WhatsappConfig> {
+  async updateConfig(fields: {
+    customPromptLia?: string | null;
+    promptRoteador?: string | null;
+    promptFluxo1?: string | null;
+    promptFluxo2?: string | null;
+    promptFluxo3?: string | null;
+    promptFluxo4?: string | null;
+  }): Promise<WhatsappConfig> {
     let record = await this.get();
     if (!record) record = this.repo.create();
     if ('customPromptLia' in fields) record.customPromptLia = fields.customPromptLia ?? null;
+    if ('promptRoteador' in fields) record.promptRoteador = fields.promptRoteador ?? null;
+    if ('promptFluxo1' in fields) record.promptFluxo1 = fields.promptFluxo1 ?? null;
+    if ('promptFluxo2' in fields) record.promptFluxo2 = fields.promptFluxo2 ?? null;
+    if ('promptFluxo3' in fields) record.promptFluxo3 = fields.promptFluxo3 ?? null;
+    if ('promptFluxo4' in fields) record.promptFluxo4 = fields.promptFluxo4 ?? null;
     return this.repo.save(record);
   }
 

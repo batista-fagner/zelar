@@ -3,6 +3,17 @@ import { Wifi, WifiOff, Loader2, Smartphone, RotateCcw, AlertCircle, X, RefreshC
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
+// Abas de prompt (multiagente). field = nome do campo na API PATCH /instance/config
+const PROMPT_TABS = [
+  { key: 'roteador', label: 'Roteador (LIA)', field: 'promptRoteador' },
+  { key: 'fluxo_1', label: 'Fluxo 1 — Cuidador', field: 'promptFluxo1' },
+  { key: 'fluxo_2', label: 'Fluxo 2 — Trabalhar', field: 'promptFluxo2' },
+  { key: 'fluxo_3', label: 'Fluxo 3 — Curso', field: 'promptFluxo3' },
+  { key: 'fluxo_4', label: 'Fluxo 4 — Jurídico', field: 'promptFluxo4' },
+]
+
+const EMPTY_PROMPTS = { roteador: '', fluxo_1: '', fluxo_2: '', fluxo_3: '', fluxo_4: '' }
+
 function StatusBadge({ status }) {
   if (status === 'connected') {
     return (
@@ -47,9 +58,9 @@ export default function SettingsPage() {
   const [error, setError] = useState(null)
   const [instanceName, setInstanceName] = useState('')
   const [creatingInstance, setCreatingInstance] = useState(false)
-  const [customPromptLia, setCustomPromptLia] = useState('')
-  const [defaultPrompts, setDefaultPrompts] = useState({ lia: '' })
-  const [activePromptTab, setActivePromptTab] = useState('lia')
+  const [prompts, setPrompts] = useState(EMPTY_PROMPTS)
+  const [defaultPrompts, setDefaultPrompts] = useState(EMPTY_PROMPTS)
+  const [activePromptTab, setActivePromptTab] = useState('roteador')
   const [savingPrompt, setSavingPrompt] = useState(false)
   const [followupDelay, setFollowupDelay] = useState(60)
   const [followupMessage, setFollowupMessage] = useState('Olá! Já conseguiu preencher o formulário de matrícula? 😊')
@@ -75,7 +86,14 @@ export default function SettingsPage() {
       const data = await res.json()
       setInstanceConfig(data)
       setWebhookConfigured(data?.webhookConfigured ?? false)
-      if (data?.customPromptLia != null) setCustomPromptLia(data.customPromptLia)
+      // Carrega prompts salvos; fluxo_3 cai para o prompt legado se ainda não tiver promptFluxo3
+      setPrompts(prev => ({
+        roteador: data?.promptRoteador ?? prev.roteador,
+        fluxo_1: data?.promptFluxo1 ?? prev.fluxo_1,
+        fluxo_2: data?.promptFluxo2 ?? prev.fluxo_2,
+        fluxo_3: data?.promptFluxo3 ?? data?.customPromptLia ?? prev.fluxo_3,
+        fluxo_4: data?.promptFluxo4 ?? prev.fluxo_4,
+      }))
       return data
     } catch {
       setInstanceConfig(null)
@@ -95,9 +113,16 @@ export default function SettingsPage() {
   const fetchDefaultPrompts = async () => {
     try {
       const res = await fetch(`${API_URL}/instance/default-prompts`)
-      const data = await res.json()
+      const data = await res.json() // { roteador, fluxo_1, fluxo_2, fluxo_3, fluxo_4 }
       setDefaultPrompts(data)
-      setCustomPromptLia(prev => prev || data.lia)
+      // Preenche os campos ainda vazios com o default do código
+      setPrompts(prev => ({
+        roteador: prev.roteador || data.roteador || '',
+        fluxo_1: prev.fluxo_1 || data.fluxo_1 || '',
+        fluxo_2: prev.fluxo_2 || data.fluxo_2 || '',
+        fluxo_3: prev.fluxo_3 || data.fluxo_3 || '',
+        fluxo_4: prev.fluxo_4 || data.fluxo_4 || '',
+      }))
     } catch { /* silencioso */ }
   }
 
@@ -554,10 +579,8 @@ export default function SettingsPage() {
           <p className="text-xs text-gray-500 mb-4">Personalize o comportamento de cada agente (personalidade, fluxo, regras). Datas, mídias disponíveis e formato técnico de resposta são adicionados automaticamente pelo sistema.</p>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg w-fit">
-            {[
-              { key: 'clara', label: 'Clara (Zelar)' },
-            ].map(tab => (
+          <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">
+            {PROMPT_TABS.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActivePromptTab(tab.key)}
@@ -574,10 +597,10 @@ export default function SettingsPage() {
 
           {/* Textarea */}
           <textarea
-            value={customPromptLia}
-            onChange={e => setCustomPromptLia(e.target.value)}
+            value={prompts[activePromptTab] ?? ''}
+            onChange={e => setPrompts(prev => ({ ...prev, [activePromptTab]: e.target.value }))}
             className="w-full h-80 text-xs font-mono border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700 leading-relaxed"
-            placeholder="Digite o prompt da IA aqui..."
+            placeholder="Digite o prompt do agente aqui..."
             spellCheck={false}
           />
 
@@ -587,10 +610,11 @@ export default function SettingsPage() {
               onClick={async () => {
                 setSavingPrompt(true)
                 try {
+                  const tab = PROMPT_TABS.find(t => t.key === activePromptTab)
                   await fetch(`${API_URL}/instance/config`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customPromptLia: customPromptLia || null }),
+                    body: JSON.stringify({ [tab.field]: prompts[activePromptTab] || null }),
                   })
                 } finally {
                   setSavingPrompt(false)
@@ -601,6 +625,13 @@ export default function SettingsPage() {
             >
               {savingPrompt ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {savingPrompt ? 'Salvando...' : 'Salvar prompt'}
+            </button>
+            <button
+              onClick={() => setPrompts(prev => ({ ...prev, [activePromptTab]: defaultPrompts[activePromptTab] || '' }))}
+              disabled={savingPrompt}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              Restaurar padrão
             </button>
           </div>
         </div>

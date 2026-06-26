@@ -54,14 +54,19 @@ export class InstanceController {
   }
 
   @Patch('config')
-  async updateConfig(@Body() body: { customPromptLia?: string | null }) {
+  async updateConfig(@Body() body: {
+    customPromptLia?: string | null;
+    promptRoteador?: string | null;
+    promptFluxo1?: string | null;
+    promptFluxo2?: string | null;
+    promptFluxo3?: string | null;
+    promptFluxo4?: string | null;
+  }) {
     return this.whatsappConfigService.updateConfig(body);
   }
 
   @Get('default-prompts')
   async getDefaultPrompts() {
-    return {
-      lia: this.aiService.getDefaultPromptLia(),
-    };
+    return this.aiService.getDefaultPrompts();
   }
 }

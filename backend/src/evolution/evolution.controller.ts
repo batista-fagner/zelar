@@ -300,10 +300,19 @@ export class EvolutionController implements OnModuleInit {
     // pelo webhook InfinitPay — ambos setam pagamento_confirmado ANTES de chamar a IA.
     // Aqui, se a IA tenta setar pagamento_confirmado sem o lead já estar nesse stage, é
     // alucinação (ex.: cliente disse "ta bom") — suprime a resposta inteira, não envia nada.
+    // Os 3 marcos abaixo só são válidos quando o lead JÁ está em pagamento_confirmado
+    // (estado setado exclusivamente pelo operador/webhook antes de chamar a IA):
+    //   - confirmar pagamento (stage=pagamento_confirmado)
+    //   - enviar o formulário de matrícula (link do Google Forms)
+    //   - matricular (stage=matriculado)
+    // Se a IA anuncia qualquer um desses sem o lead estar em pagamento_confirmado, é
+    // alucinação (ex.: cliente disse "ta bom"/"fiz") — suprime a resposta inteira para
+    // não enviar mensagem que contradiz o card (que continua parado pela proteção de stage).
     const tentouConfirmar = aiResponse.stage === 'pagamento_confirmado';
+    const tentouMatricular = aiResponse.stage === 'matriculado';
     const enviouFormulario = /docs\.google\.com\/forms/i.test(aiResponse.reply ?? '');
-    if ((tentouConfirmar || enviouFormulario) && lead.stage !== 'pagamento_confirmado') {
-      this.logger.warn(`[GUARD] IA tentou confirmar pagamento/enviar formulário sem autorização para ${phone} (stage atual=${lead.stage}, confirmou=${tentouConfirmar}, form=${enviouFormulario}). Resposta suprimida.`);
+    if ((tentouConfirmar || tentouMatricular || enviouFormulario) && lead.stage !== 'pagamento_confirmado') {
+      this.logger.warn(`[GUARD] IA tentou anunciar marco sem autorização para ${phone} (stage atual=${lead.stage}, confirmou=${tentouConfirmar}, matriculou=${tentouMatricular}, form=${enviouFormulario}). Resposta suprimida.`);
       const updatedLead = await this.leadsService.findOne(lead.id);
       this.leadsGateway.emitLeadUpdated(updatedLead);
       return;

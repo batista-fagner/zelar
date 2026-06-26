@@ -228,11 +228,25 @@ COMPORTAMENTO FORA DE ESCOPO:
 
 REGRA DE STAGE: use "novo_lead" apenas na primeira resposta. A partir da segunda mensagem, use sempre "em_atendimento" (ou o stage correspondente ao momento atual).`;
 
+function extractJsonObject(text: string): string | null {
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) return text.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function parseAiJson(raw: string): AiResponse {
-  let cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    // Modelo respondeu em texto puro (ignorou o formato JSON) — usa o texto como reply
+  const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+  const jsonStr = extractJsonObject(cleaned);
+  if (!jsonStr) {
     const text = cleaned.trim();
     if (!text) throw new Error('Resposta vazia do modelo');
     return {
@@ -243,9 +257,9 @@ function parseAiJson(raw: string): AiResponse {
       rawJson: JSON.stringify({ reply: text, action: 'none' }),
     } as AiResponse;
   }
-  const parsed: AiResponse = JSON.parse(jsonMatch[0]);
+  const parsed: AiResponse = JSON.parse(jsonStr);
   parsed.success = true;
-  parsed.rawJson = jsonMatch[0];
+  parsed.rawJson = jsonStr;
   return parsed;
 }
 

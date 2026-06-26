@@ -95,9 +95,21 @@ export class EvolutionController implements OnModuleInit {
       }
     }
 
+    // Ignora reações de mensagem (👍, ❤️, etc.) — uazapi pode enviar como type='reaction'
+    // ou com campo reactionMessage preenchido
+    if (message.type === 'reaction' || message.reactionMessage || body.reactionMessage) {
+      this.logger.debug(`Webhook ignorado — reação de mensagem: type=${message.type} text=${message.text}`);
+      return { ok: true };
+    }
+
     if (!phone || (!text && !isAudio)) {
       this.logger.warn(`Webhook ignorado — phone="${phone}", text="${text}", type="${message.type}", mediaType="${message.mediaType}"`);
       return { ok: true };
+    }
+
+    // Log detalhado para tipos não-padrão (ajuda a identificar novos tipos do uazapi)
+    if (message.type && message.type !== 'text' && message.type !== 'media' && message.type !== 'extendedTextMessage') {
+      this.logger.warn(`[WEBHOOK] Tipo incomum recebido: type=${message.type}, text="${String(text ?? '').substring(0, 40)}", body=${JSON.stringify(message).substring(0, 200)}`);
     }
 
     if (!phone || (!text && !isAudio)) return { ok: true };

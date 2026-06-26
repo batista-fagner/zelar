@@ -291,7 +291,7 @@ export class EvolutionController implements OnModuleInit {
 
       // Atualiza stage e desativa IA permanentemente para nunca mais responder
       if (aiResponse.stage) {
-        await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+        await this.safeUpdateStageForAi(lead.id, lead.stage, aiResponse.stage);
       }
       await this.leadsService.toggleAi(lead.id, false);
 
@@ -367,33 +367,8 @@ export class EvolutionController implements OnModuleInit {
     }
 
     // Atualiza stage com proteção contra regressão e contra avanço indevido
-    if (aiResponse.stage && aiResponse.stage !== lead.stage) {
-      const stageOrder: Record<string, number> = {
-        novo_lead: 0, em_atendimento: 1, aguardando_pagamento: 2,
-        pagamento_confirmado: 3, matriculado: 4, perdido: 2,
-      };
-      const currentOrder = stageOrder[lead.stage] ?? 0;
-      const newOrder = stageOrder[aiResponse.stage] ?? 0;
-
-      // pagamento_confirmado é EXCLUSIVO do operador (botão CRM) ou webhook InfinitPay.
-      // A IA nunca pode setar este stage diretamente, mesmo que o cliente diga que pagou.
-      if (aiResponse.stage === 'pagamento_confirmado') {
-        this.logger.warn(`[STAGE] Bloqueado pela IA: tentativa de setar pagamento_confirmado — exclusivo do operador/webhook`);
-      } else {
-        // pagamento_confirmado só pode ser setado pela IA se o lead já passou por aguardando_pagamento
-        const requiresPriorStage: Partial<Record<string, string>> = {
-          matriculado: 'pagamento_confirmado',
-        };
-        const requiredPrior = requiresPriorStage[aiResponse.stage];
-        const priorSatisfied = !requiredPrior || stageOrder[lead.stage] >= stageOrder[requiredPrior];
-
-        this.logger.log(`[STAGE] ${lead.stage}(${currentOrder}) → ${aiResponse.stage}(${newOrder})`);
-        if (newOrder > currentOrder && priorSatisfied) {
-          await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
-        } else {
-          this.logger.warn(`[STAGE] Bloqueado pela IA: ${lead.stage} → ${aiResponse.stage} (regressão ou stage anterior obrigatório não atingido)`);
-        }
-      }
+    if (aiResponse.stage) {
+      await this.safeUpdateStageForAi(lead.id, lead.stage, aiResponse.stage);
     }
 
     // Envio de mídia (imagem/vídeo cadastrada no sistema)
@@ -413,8 +388,8 @@ export class EvolutionController implements OnModuleInit {
           await this.evolutionService.sendTextMessage(phone, block);
           await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', block);
         }
-        if (aiResponse.stage && aiResponse.stage !== lead.stage) {
-          await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+        if (aiResponse.stage) {
+          await this.safeUpdateStageForAi(lead.id, lead.stage, aiResponse.stage);
         }
         // Pausa a IA apenas para mídia de pagamento (PIX), aguardando confirmação do operador.
         // Mídias informativas (ex: catálogo do curso) NÃO pausam a IA.
@@ -452,7 +427,7 @@ export class EvolutionController implements OnModuleInit {
         const msg = `${aiResponse.reply}\n\n${paymentUrl}`;
         await this.evolutionService.sendTextMessage(phone, msg);
         await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);
-        if (aiResponse.stage) await this.leadsService.updateStage(lead.id, aiResponse.stage as any, 'ai');
+        if (aiResponse.stage) await this.safeUpdateStageForAi(lead.id, lead.stage, aiResponse.stage);
         await this.leadsService.toggleAi(lead.id, false);
         const updatedLead = await this.leadsService.findOne(lead.id);
         this.leadsGateway.emitLeadUpdated(updatedLead);
@@ -699,6 +674,38 @@ export class EvolutionController implements OnModuleInit {
    * 3. Busca novamente para pegar IDs atualizados
    * 4. Associa cada etiqueta ao contato (POST /chat/labels com add_labelid)
    */
+  private readonly STAGE_ORDER: Record<string, number> = {
+    novo_lead: 0, em_atendimento: 1, aguardando_pagamento: 2,
+    pagamento_confirmado: 3, matriculado: 4, perdido: 2,
+  };
+
+  /** Atualiza stage pela IA com proteção completa contra regressão e stages bloqueados. */
+  private async safeUpdateStageForAi(leadId: string, currentStage: string, newStage: string): Promise<boolean> {
+    if (!newStage || newStage === currentStage) return false;
+
+    if (newStage === 'pagamento_confirmado') {
+      this.logger.warn(`[STAGE] Bloqueado pela IA: tentativa de setar pagamento_confirmado — exclusivo do operador/webhook`);
+      return false;
+    }
+
+    const currentOrder = this.STAGE_ORDER[currentStage] ?? 0;
+    const newOrder = this.STAGE_ORDER[newStage] ?? 0;
+
+    if (newStage === 'matriculado' && currentStage !== 'pagamento_confirmado') {
+      this.logger.warn(`[STAGE] Bloqueado pela IA: matriculado requer pagamento_confirmado anterior (atual: ${currentStage})`);
+      return false;
+    }
+
+    if (newOrder <= currentOrder) {
+      this.logger.warn(`[STAGE] Bloqueado pela IA: ${currentStage}(${currentOrder}) → ${newStage}(${newOrder}) é regressão`);
+      return false;
+    }
+
+    this.logger.log(`[STAGE] ${currentStage}(${currentOrder}) → ${newStage}(${newOrder})`);
+    await this.leadsService.updateStage(leadId, newStage as any, 'ai');
+    return true;
+  }
+
   private async applyTagsToLead(phone: string, tags: string[]): Promise<void> {
     const uazapiUrl = this.configService.get('UAZAPI_BASE_URL') || 'https://labsai.uazapi.com';
     const uazapiToken = await this.whatsappConfigService.getActiveToken();

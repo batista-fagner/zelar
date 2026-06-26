@@ -53,38 +53,34 @@ export class LeadsService implements OnApplicationBootstrap {
   }
 
   async findOrCreate(phone: string): Promise<{ lead: Lead; conversation: Conversation; isNew: boolean }> {
-    // Upsert para evitar race condition em webhooks duplicados
-    const upsertResult = await this.leadsRepo.upsert(
-      { phone, stage: 'novo_lead' },
-      { conflictPaths: ['phone'] },
-    );
-
     let isNew = false;
+
+    // Busca lead existente — nunca usar upsert aqui porque o TypeORM faria
+    // ON CONFLICT DO UPDATE SET stage='novo_lead', resetando o funil a cada mensagem.
     let lead = await this.leadsRepo.findOne({ where: { phone } });
 
-    // Se foi inserido (não existia antes), cria histórico
-    if (upsertResult.identifiers.length > 0 && !isNew) {
-      const recentHistory = await this.historyRepo.findOne({
-        where: { leadId: lead!.id },
-        order: { createdAt: 'DESC' },
-      });
-      if (!recentHistory) {
+    if (!lead) {
+      try {
+        lead = await this.leadsRepo.save(this.leadsRepo.create({ phone }));
         isNew = true;
-        await this.historyRepo.save({
-          leadId: lead!.id,
-          fromStage: null,
-          toStage: 'novo_lead',
-          changedBy: 'system',
-        });
+        await this.historyRepo.save({ leadId: lead.id, fromStage: null, toStage: 'novo_lead', changedBy: 'system' });
+      } catch {
+        // Race condition: outra requisição simultânea já inseriu — busca o que foi inserido
+        lead = await this.leadsRepo.findOne({ where: { phone } });
       }
     }
 
-    // Upsert conversation também para evitar race condition
-    await this.conversationsRepo.upsert(
-      { leadId: lead!.id, aiEnabled: true },
-      { conflictPaths: ['leadId'] },
-    );
-    const conversation = await this.conversationsRepo.findOne({ where: { leadId: lead!.id } });
+    // Garante conversation sem resetar aiEnabled de uma existente
+    let conversation = await this.conversationsRepo.findOne({ where: { leadId: lead!.id } });
+    if (!conversation) {
+      try {
+        conversation = await this.conversationsRepo.save(
+          this.conversationsRepo.create({ leadId: lead!.id, aiEnabled: true }),
+        );
+      } catch {
+        conversation = await this.conversationsRepo.findOne({ where: { leadId: lead!.id } });
+      }
+    }
 
     return { lead: lead!, conversation: conversation!, isNew };
   }

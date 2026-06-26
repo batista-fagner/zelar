@@ -415,7 +415,7 @@ export class EvolutionController implements OnModuleInit {
       }
     }
 
-    // Boleto → notifica operador (action exclusiva)
+    // Boleto → notifica operador (action exclusiva) e pausa IA aguardando envio manual
     if (aiResponse.action === 'aguardar_boleto') {
       this.logger.log(`⏳ [LIA] Boleto — notificando operador para ${phone}`);
       const existingLabels: string[] = lead.labels ?? [];
@@ -430,6 +430,17 @@ export class EvolutionController implements OnModuleInit {
       this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
         this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
       );
+
+      // Envia a mensagem da IA antes de pausar
+      if (aiResponse.reply) {
+        await this.evolutionService.sendTextMessage(phone, aiResponse.reply);
+        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', aiResponse.reply);
+      }
+      await this.safeUpdateStageForAi(lead.id, lead.stage, 'aguardando_pagamento');
+      await this.leadsService.toggleAi(lead.id, false);
+      const updatedLead = await this.leadsService.findOne(lead.id);
+      this.leadsGateway.emitLeadUpdated(updatedLead);
+      return;
     }
 
     // Confirmação de pagamento: cartão → gera link InfinitPay

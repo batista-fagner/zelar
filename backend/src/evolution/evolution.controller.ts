@@ -294,6 +294,21 @@ export class EvolutionController implements OnModuleInit {
 
     this.logger.log(`LIA respondeu [flow=${flowKeyForContext}, stage=${aiResponse.stage}]: ${aiResponse.reply}`);
 
+    // GUARD DETERMINÍSTICO — CONFIRMAÇÃO DE PAGAMENTO É EXCLUSIVA DO OPERADOR/WEBHOOK:
+    // a IA NÃO pode confirmar pagamento nem enviar o formulário de matrícula por conta
+    // própria. O formulário só sai pelo endpoint confirm-payment (botão do operador) ou
+    // pelo webhook InfinitPay — ambos setam pagamento_confirmado ANTES de chamar a IA.
+    // Aqui, se a IA tenta setar pagamento_confirmado sem o lead já estar nesse stage, é
+    // alucinação (ex.: cliente disse "ta bom") — suprime a resposta inteira, não envia nada.
+    const tentouConfirmar = aiResponse.stage === 'pagamento_confirmado';
+    const enviouFormulario = /docs\.google\.com\/forms/i.test(aiResponse.reply ?? '');
+    if ((tentouConfirmar || enviouFormulario) && lead.stage !== 'pagamento_confirmado') {
+      this.logger.warn(`[GUARD] IA tentou confirmar pagamento/enviar formulário sem autorização para ${phone} (stage atual=${lead.stage}, confirmou=${tentouConfirmar}, form=${enviouFormulario}). Resposta suprimida.`);
+      const updatedLead = await this.leadsService.findOne(lead.id);
+      this.leadsGateway.emitLeadUpdated(updatedLead);
+      return;
+    }
+
     // CAMADA DE SEGURANÇA: Se shouldIgnore=true, não responder e sair
     if (aiResponse.shouldIgnore === true) {
       this.logger.warn(`Lead ${phone} marcado para ignorar. Aplicando etiquetas e não respondendo mais.`);

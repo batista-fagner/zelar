@@ -726,6 +726,14 @@ export class EvolutionController implements OnModuleInit {
 
     this.logger.log(`[STAGE] ${currentStage}(${currentOrder}) → ${newStage}(${newOrder})`);
     await this.leadsService.updateStage(leadId, newStage as any, 'ai');
+
+    // GUARD BACKEND: ao entrar em aguardando_pagamento, a IA SEMPRE pausa —
+    // independente de qual action (PIX, cartão, boleto) disparou a transição.
+    // Só o operador (botão) ou o webhook InfinitPay reativam a IA.
+    if (newStage === 'aguardando_pagamento') {
+      await this.leadsService.toggleAi(leadId, false);
+      this.logger.log(`[STAGE] IA pausada — lead ${leadId} aguardando confirmação de pagamento`);
+    }
     return true;
   }
 

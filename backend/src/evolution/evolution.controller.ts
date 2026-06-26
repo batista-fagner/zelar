@@ -206,6 +206,19 @@ export class EvolutionController implements OnModuleInit {
       return;
     }
 
+    // GUARD DETERMINÍSTICO POR STAGE: lead aguardando confirmação de pagamento NÃO recebe
+    // resposta da IA — independente do flag aiEnabled ou do que a IA tente fazer.
+    // Só o operador (botão "Confirmar Pagamento") ou o webhook InfinitPay retomam a conversa.
+    // Isso impede a IA de: (a) confirmar pagamento por conta própria ("ta bom" → formulário),
+    // (b) regredir o card (perdido/novo_lead) enquanto aguarda pagamento.
+    if (lead.stage === 'aguardando_pagamento') {
+      this.logger.log(`[GUARD] ${phone} em aguardando_pagamento — IA não responde (aguardando operador/webhook)`);
+      await this.leadsService.toggleAi(lead.id, false);
+      const updatedLead = await this.leadsService.findOne(lead.id);
+      this.leadsGateway.emitLeadUpdated(updatedLead);
+      return;
+    }
+
     // Lead perdido voltou a falar: reinicia como novo_lead
     if (lead.stage === 'perdido') {
       await this.leadsService.updateStage(lead.id, 'novo_lead', 'system');
@@ -320,6 +333,15 @@ export class EvolutionController implements OnModuleInit {
     // Se CPF for válido mas nome faltar, salva o CPF e pede o nome (não descarta o CPF).
     // Se CPF for inválido, descarta e pede de novo.
     if (aiResponse.action === 'aguardar_boleto') {
+      // Marca a intenção de boleto CEDO (mesmo com dados incompletos) — habilita a
+      // auto-extração de CPF nas próximas mensagens e a conclusão determinística.
+      if (!(lead.labels ?? []).includes('boleto')) {
+        await this.applyTagsToLead(phone, ['boleto']);
+        const merged = [...(lead.labels ?? []), 'boleto'];
+        await this.leadsService.update(lead.id, { labels: merged } as any);
+        lead.labels = merged;
+      }
+
       const cpfDigits = onlyDigits(aiResponse.fields?.cpf || (lead as any).cpf);
       const effectiveName = (aiResponse.fields?.name || lead.name || '').trim();
       const hasName = effectiveName.length > 0;
@@ -360,6 +382,22 @@ export class EvolutionController implements OnModuleInit {
     }
 
     await this.leadsService.update(lead.id, updateData);
+
+    // CONCLUSÃO DETERMINÍSTICA DO BOLETO (rede de segurança independente da action da IA):
+    // se o lead escolheu boleto e o backend já tem nome + CPF(11 dígitos), conclui aqui —
+    // não importa se a IA emitiu action=aguardar_boleto ou apenas respondeu texto comum.
+    if ((lead.labels ?? []).includes('boleto')) {
+      const freshLead = (await this.leadsService.findOne(lead.id)) ?? lead;
+      const cpf = onlyDigits((freshLead as any).cpf);
+      const name = (freshLead.name ?? '').trim();
+      // Só conclui se o lead ainda NÃO chegou a aguardando_pagamento (evita regredir
+      // um lead já em aguardando_pagamento/pagamento_confirmado/matriculado).
+      const beforePayment = (this.STAGE_ORDER[freshLead.stage] ?? 0) < this.STAGE_ORDER['aguardando_pagamento'];
+      if (name && cpf.length === 11 && beforePayment) {
+        await this.completeBoleto(freshLead, phone, conversation.id);
+        return;
+      }
+    }
 
     // Aplica tags
     const normalTags = (aiResponse.tags ?? []).filter(t => t);
@@ -415,33 +453,9 @@ export class EvolutionController implements OnModuleInit {
       }
     }
 
-    // Boleto → notifica operador (action exclusiva) e pausa IA aguardando envio manual
-    if (aiResponse.action === 'aguardar_boleto') {
-      this.logger.log(`⏳ [LIA] Boleto — notificando operador para ${phone}`);
-      const existingLabels: string[] = lead.labels ?? [];
-      if (!existingLabels.includes('boleto')) {
-        await this.applyTagsToLead(phone, ['boleto']);
-        await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
-      }
-      const operadorPhone = '5527996972230';
-      const clientName = aiResponse.fields?.name || lead.name || 'Sem nome';
-      const clientCpf = aiResponse.fields?.cpf || (lead as any).cpf || 'Não informado';
-      const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n🪪 CPF: ${clientCpf}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
-      this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
-        this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
-      );
-
-      // Envia a mensagem da IA antes de pausar
-      if (aiResponse.reply) {
-        await this.evolutionService.sendTextMessage(phone, aiResponse.reply);
-        await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', aiResponse.reply);
-      }
-      await this.safeUpdateStageForAi(lead.id, lead.stage, 'aguardando_pagamento');
-      await this.leadsService.toggleAi(lead.id, false);
-      const updatedLead = await this.leadsService.findOne(lead.id);
-      this.leadsGateway.emitLeadUpdated(updatedLead);
-      return;
-    }
+    // Boleto com dados incompletos: a IA emitiu aguardar_boleto mas o guard acima
+    // transformou em pedido de nome/CPF (action='none'). A conclusão determinística
+    // (acima) cuida do caso com dados completos. Aqui não há mais nada a fazer.
 
     // Confirmação de pagamento: cartão → gera link InfinitPay
     if (aiResponse.action === 'aguardar_confirmacao_pagamento' || aiResponse.action === 'send_payment_link') {
@@ -735,6 +749,43 @@ export class EvolutionController implements OnModuleInit {
       this.logger.log(`[STAGE] IA pausada — lead ${leadId} aguardando confirmação de pagamento`);
     }
     return true;
+  }
+
+  /**
+   * Conclui o fluxo de boleto de forma DETERMINÍSTICA (não depende da action da IA):
+   * notifica o operador, avisa o cliente, move para aguardando_pagamento e pausa a IA.
+   * Chamado assim que o backend tem nome + CPF(11 dígitos) do lead com label 'boleto'.
+   */
+  private async completeBoleto(lead: any, phone: string, conversationId: string): Promise<void> {
+    const onlyDigits = (s?: string | null) => (s ?? '').replace(/\D/g, '');
+    const clientName = (lead.name ?? 'Sem nome').trim() || 'Sem nome';
+    const clientCpf = onlyDigits(lead.cpf) || 'Não informado';
+
+    // Garante a etiqueta de boleto
+    const existingLabels: string[] = lead.labels ?? [];
+    if (!existingLabels.includes('boleto')) {
+      await this.applyTagsToLead(phone, ['boleto']);
+      await this.leadsService.update(lead.id, { labels: [...existingLabels, 'boleto'] } as any);
+    }
+
+    // Notifica o operador para emitir o boleto manualmente
+    const operadorPhone = '5527996972230';
+    const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n🪪 CPF: ${clientCpf}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
+    this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
+      this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
+    );
+
+    // Avisa o cliente e pausa
+    const clientMsg = 'Perfeito! A emissão do boleto é feita pela nossa equipe. Aguarde um momento que já te enviamos por aqui 😊';
+    await this.evolutionService.sendTextMessage(phone, clientMsg);
+    await this.leadsService.saveMessage(conversationId, 'outbound', 'ai', clientMsg);
+
+    await this.leadsService.updateStage(lead.id, 'aguardando_pagamento' as any, 'system');
+    await this.leadsService.toggleAi(lead.id, false);
+    this.logger.log(`[BOLETO] Concluído deterministicamente — ${phone} (${clientName}/${clientCpf}) → aguardando_pagamento, IA pausada`);
+
+    const updatedLead = await this.leadsService.findOne(lead.id);
+    this.leadsGateway.emitLeadUpdated(updatedLead);
   }
 
   private async applyTagsToLead(phone: string, tags: string[]): Promise<void> {

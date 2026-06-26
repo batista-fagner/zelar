@@ -195,6 +195,8 @@ export class EvolutionController implements OnModuleInit {
     const { lead: leadInit, conversation } = await this.leadsService.findOrCreate(phone);
     let lead = leadInit;
 
+    this.logger.log(`[DIAG] findOrCreate phone=${phone} → id=${lead.id}, stage=${lead.stage}, activeFlow=${lead.activeFlow}, aiEnabled=?`);
+
     await this.leadsService.saveMessage(conversation.id, 'inbound', phone, combinedText, messageKeyId);
     await this.leadsService.update(lead.id, { lastMessageAt: new Date() });
 

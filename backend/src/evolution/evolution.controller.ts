@@ -725,6 +725,16 @@ export class EvolutionController implements OnModuleInit {
       return false;
     }
 
+    // GUARD PAGAMENTO CONFIRMADO: o lead que já confirmou pagamento só pode ir pra matriculado
+    // ou ficar em pagamento_confirmado. Qualquer regressão/lateral é bloqueado.
+    // Impede a IA de marcar como perdido/novo_lead enquanto aguarda resposta do formulário.
+    if (currentStage === 'pagamento_confirmado') {
+      if (newStage !== 'matriculado') {
+        this.logger.warn(`[STAGE] Bloqueado pela IA: em pagamento_confirmado, só permite ir pra matriculado (tentou: ${newStage})`);
+        return false;
+      }
+    }
+
     const currentOrder = this.STAGE_ORDER[currentStage] ?? 0;
     const newOrder = this.STAGE_ORDER[newStage] ?? 0;
 

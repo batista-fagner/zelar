@@ -167,7 +167,8 @@ export class EvolutionController implements OnModuleInit {
   }
 
   private async processMessage(phone: string, combinedText: string, messageKeyId: string) {
-    const { lead, conversation } = await this.leadsService.findOrCreate(phone);
+    const { lead: leadInit, conversation } = await this.leadsService.findOrCreate(phone);
+    let lead = leadInit;
 
     await this.leadsService.saveMessage(conversation.id, 'inbound', phone, combinedText, messageKeyId);
     await this.leadsService.update(lead.id, { lastMessageAt: new Date() });
@@ -185,6 +186,19 @@ export class EvolutionController implements OnModuleInit {
       await this.leadsService.updateStage(lead.id, 'novo_lead', 'system');
       lead.stage = 'novo_lead';
       this.logger.log(`Lead ${phone} era perdido — movido para novo_lead ao retornar`);
+    }
+
+    // AUTO-EXTRAÇÃO DE CPF: se a mensagem contém exatamente 11 dígitos e o lead
+    // ainda não tem CPF, salva imediatamente — a IA não precisa validar formato.
+    // Só executa quando o lead tem a label 'boleto' (evita capturar dígitos fora de contexto).
+    const existingCpf = (lead as any).cpf;
+    if (!existingCpf && (lead.labels ?? []).includes('boleto')) {
+      const digits = combinedText.replace(/\D/g, '');
+      if (digits.length === 11) {
+        await this.leadsService.update(lead.id, { cpf: digits } as any);
+        lead = (await this.leadsService.findOne(lead.id)) ?? lead;
+        this.logger.log(`[CPF] Auto-extraído da mensagem para ${phone}: ${digits}`);
+      }
     }
 
     // Mostra "digitando..." enquanto a IA processa

@@ -114,11 +114,34 @@ export class LeadsService implements OnApplicationBootstrap {
     return saved;
   }
 
+  // Ordem do funil — fonte única de verdade para proteção de regressão.
+  // perdido = 2 (mesmo nível de aguardando_pagamento): estado negativo, não é posição de funil.
+  private static readonly STAGE_ORDER: Record<string, number> = {
+    novo_lead: 0, em_atendimento: 1, aguardando_pagamento: 2,
+    pagamento_confirmado: 3, matriculado: 4, perdido: 2,
+  };
+
   async updateStage(leadId: string, toStage: LeadStage, changedBy: string): Promise<Lead> {
     const lead = await this.leadsRepo.findOneOrFail({ where: { id: leadId } });
     const fromStage = lead.stage;
 
     if (fromStage === toStage) return lead;
+
+    // PROTEÇÃO CENTRALIZADA (fonte única): só o operador pode regredir/mover livremente.
+    // IA e sistema NUNCA regridem um card — bloqueia em qualquer caminho que chame updateStage.
+    if (changedBy !== 'operator') {
+      const fromOrder = LeadsService.STAGE_ORDER[fromStage] ?? 0;
+      const toOrder = LeadsService.STAGE_ORDER[toStage] ?? 0;
+      if (toOrder < fromOrder) {
+        this.logger.warn(`[STAGE] Regressão bloqueada (${changedBy}): ${fromStage}(${fromOrder}) → ${toStage}(${toOrder}) — só o operador pode mover o card para trás`);
+        return lead;
+      }
+      // pagamento_confirmado nunca pode ser setado pela IA (só operador/webhook 'system')
+      if (toStage === 'pagamento_confirmado' && changedBy === 'ai') {
+        this.logger.warn(`[STAGE] pagamento_confirmado bloqueado para a IA — exclusivo do operador/webhook`);
+        return lead;
+      }
+    }
 
     lead.stage = toStage;
     await this.leadsRepo.save(lead);

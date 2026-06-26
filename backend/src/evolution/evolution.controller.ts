@@ -219,12 +219,9 @@ export class EvolutionController implements OnModuleInit {
       return;
     }
 
-    // Lead perdido voltou a falar: reinicia como novo_lead
-    if (lead.stage === 'perdido') {
-      await this.leadsService.updateStage(lead.id, 'novo_lead', 'system');
-      lead.stage = 'novo_lead';
-      this.logger.log(`Lead ${phone} era perdido — movido para novo_lead ao retornar`);
-    }
+    // Lead perdido que volta a falar: a IA continua respondendo, mas o card NÃO é
+    // movido automaticamente (regra: nenhuma regressão automática). Se for o caso de
+    // reativar, o operador move o card manualmente no Kanban.
 
     // AUTO-EXTRAÇÃO DE CPF: se a mensagem contém exatamente 11 dígitos e o lead
     // ainda não tem CPF, salva imediatamente — a IA não precisa validar formato.

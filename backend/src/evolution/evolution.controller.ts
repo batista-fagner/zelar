@@ -384,9 +384,9 @@ export class EvolutionController implements OnModuleInit {
     await this.leadsService.update(lead.id, updateData);
 
     // CONCLUSÃO DETERMINÍSTICA DO BOLETO (rede de segurança independente da action da IA):
-    // se o lead escolheu boleto e o backend já tem nome + CPF(11 dígitos), conclui aqui —
-    // não importa se a IA emitiu action=aguardar_boleto ou apenas respondeu texto comum.
-    if ((lead.labels ?? []).includes('boleto')) {
+    // só roda se a IA EMITIU action=aguardar_boleto — evita disparar em mensagens posteriores
+    // de um lead que tem label boleto mas já passou pra pagamento_confirmado.
+    if (aiResponse.action === 'aguardar_boleto' && (lead.labels ?? []).includes('boleto')) {
       const freshLead = (await this.leadsService.findOne(lead.id)) ?? lead;
       const cpf = onlyDigits((freshLead as any).cpf);
       const name = (freshLead.name ?? '').trim();

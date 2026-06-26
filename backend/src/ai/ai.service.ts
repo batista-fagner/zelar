@@ -49,7 +49,7 @@ async function callWithRetry<T>(
 function buildLeadContext(lead: Lead): string {
   const lines: string[] = [];
   if (lead.name) lines.push(`- Nome: ${lead.name}`);
-  if ((lead as any).cpf) lines.push(`- CPF: ${(lead as any).cpf}`);
+  if ((lead as any).cpf) lines.push(`- CPF: ${(lead as any).cpf} ✅ (já coletado e validado — NÃO solicite novamente)`);
   if (lead.stage) lines.push(`- Stage atual: ${lead.stage}`);
   if (lines.length === 0) return '';
   return `\n\n════ DADOS DO CONTATO ════\n${lines.join('\n')}\n══════════════════════════`;

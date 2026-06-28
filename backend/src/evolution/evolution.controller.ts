@@ -285,9 +285,42 @@ export class EvolutionController implements OnModuleInit {
     if (aiResponse.switchFlow && aiResponse.switchFlow !== lead.activeFlow) {
       const validFlows: FlowKey[] = ['fluxo_1', 'fluxo_2', 'fluxo_3', 'fluxo_4'];
       if (validFlows.includes(aiResponse.switchFlow)) {
-        await this.leadsService.update(lead.id, { activeFlow: aiResponse.switchFlow } as any);
-        lead.activeFlow = aiResponse.switchFlow;
-        this.logger.log(`[SWITCH] ${phone} → ${aiResponse.switchFlow}`);
+        const newFlow = aiResponse.switchFlow as Exclude<FlowKey, 'roteador'>;
+        await this.leadsService.update(lead.id, { activeFlow: newFlow } as any);
+        lead.activeFlow = newFlow;
+        this.logger.log(`[SWITCH] ${phone} → ${newFlow}`);
+
+        // Envia a resposta de transição do fluxo atual (ex: "Que ótimo!")
+        if (aiResponse.reply) {
+          void this.evolutionService.sendTypingIndicator(phone, 1000);
+          await new Promise(r => setTimeout(r, 800));
+          await this.evolutionService.sendTextMessage(phone, aiResponse.reply);
+          await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', aiResponse.reply);
+          aiResponse.reply = ''; // evita reenvio no final do fluxo normal
+        }
+
+        // Chama o novo especialista na mesma requisição com o contexto atualizado
+        const freshLead = (await this.leadsService.findOne(lead.id)) ?? lead;
+        const switchPrompt = this.pickFlowPrompt(instanceConfig, newFlow);
+        const handoffMsg = `[Sistema] O usuário aceitou e foi transferido do ${flowKeyForContext} para ${newFlow}. Continue a conversa a partir do PASSO 1 do novo fluxo.`;
+        const switchResponse = await this.aiService.processFlow(freshLead, handoffMsg, newFlow, switchPrompt);
+
+        if (switchResponse.success && switchResponse.reply) {
+          void this.evolutionService.sendTypingIndicator(phone, 1500);
+          await new Promise(r => setTimeout(r, 1200));
+          await this.evolutionService.sendTextMessage(phone, switchResponse.reply);
+          await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', switchResponse.reply);
+          const switchContext = this.aiService.buildUpdatedContext(freshLead, newFlow, handoffMsg, switchResponse.rawJson!);
+          await this.leadsService.update(lead.id, { aiContext: switchContext } as any);
+        }
+
+        if (switchResponse.stage) {
+          await this.safeUpdateStageForAi(lead.id, freshLead.stage, switchResponse.stage);
+        }
+
+        const updatedLead = await this.leadsService.findOne(lead.id);
+        this.leadsGateway.emitLeadUpdated(updatedLead);
+        return;
       }
     }
 

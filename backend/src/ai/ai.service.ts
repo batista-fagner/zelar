@@ -413,8 +413,8 @@ export class AiService {
   private readonly genai: GoogleGenerativeAI;
   private readonly openrouterKey: string;
   private readonly openrouterModel = 'openai/gpt-oss-120b:free';
-  private readonly geminiModel = 'gemini-2.5-flash-lite';
-  private readonly geminiModelFallback = 'gemini-2.5-flash';
+  private readonly geminiModel = 'gemini-2.5-flash';
+  private readonly geminiModelFallback = 'gemini-2.5-flash-lite';
 
   constructor(private config: ConfigService) {
     this.genai = new GoogleGenerativeAI(config.get('GEMINI_API_KEY') ?? '');

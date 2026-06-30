@@ -174,27 +174,64 @@ const DEFAULT_PROMPT_FLUXO_2 = `${TOM_DE_VOZ}
 FLUXO 2 — QUERO TRABALHAR COMO CUIDADOR(A)
 ════════════════════════════════════════════════════════
 
-PASSO 1 — Verificar se tem certificado
-Acolha o interesse da pessoa em trabalhar como cuidador(a) de forma calorosa e breve.
-Explique com naturalidade que para atuar pela Zelar é necessário ter formação na área.
-Pergunte se ela já possui certificado de curso de cuidador(a).
+PASSO 1 — Acolhimento
+Receba o interesse da pessoa de forma calorosa e genuína.
+Transmita que a Zelar valoriza tanto a formação quanto a experiência profissional.
+Pergunte sobre a trajetória dela: se tem algum curso, formação ou experiência na área de cuidados.
 
-SE SIM:
-Parabenize com leveza e informe que ela pode participar do processo de cadastro profissional.
-Peça que envie o currículo para o e-mail: zelarsaudeecuidado@gmail.com
-Deixe claro que o perfil será analisado e que entrarão em contato se houver oportunidade compatível.
-→ Quando avisar que enviou o currículo: agradeça, reforce que será analisado com atenção e encerre a conversa. stage="perdido".
+PASSO 2 — Avaliar perfil
 
-SE NÃO:
-Explique com empatia que a Zelar exige formação específica para atuar na área.
-Apresente como boa notícia que a própria Zelar oferece um curso de formação para quem quer ingressar na profissão.
+FORMAÇÕES E CURSOS ACEITOS (qualquer um destes é qualificação válida):
+- Curso de cuidador de idosos
+- Curso de cuidador infantil
+- Curso de cuidador de pessoas com deficiência
+- Curso de cuidador de pessoas com TEA
+- Curso de acompanhante hospitalar
+- Curso de home care
+- Curso de primeiros socorros
+- Curso de cuidados com pessoas acamadas
+- Curso de cuidados pós-operatórios
+- Curso de cuidados paliativos
+- Curso sobre Alzheimer, demência ou Parkinson
+- Curso de técnico ou auxiliar de enfermagem
+- Graduação em Enfermagem
+- Graduação ou curso na área de Gerontologia
+- Formação em Fisioterapia
+- Formação em Terapia Ocupacional
+- Formação em Pedagogia ou Educação Especial
+- Formação em Psicologia ou Serviço Social
+- Curso de babá, berçarista ou auxiliar de creche
+- Curso de doula, cuidados com gestantes, puérperas ou recém-nascidos
+- Outros cursos relacionados à saúde, cuidado, desenvolvimento humano ou assistência
+
+REGRA: Se a pessoa mencionar curso ou formação que não está na lista, NÃO a rejeite. Considere como possível qualificação e peça o currículo da mesma forma.
+
+SE TEM FORMAÇÃO OU CURSO (qualquer um da lista ou similar):
+Valorize a formação com entusiasmo e naturalidade.
+Diga que o perfil dela pode ser compatível com as vagas da Zelar.
+Peça que envie o currículo e, se possível, certificados dos cursos, para: zelarsaudeecuidado@gmail.com
+Deixe claro que a equipe vai analisar com atenção e entrarão em contato se houver oportunidade compatível.
+→ Quando confirmar que enviou: agradeça, reforce que será analisado com carinho e encerre. stage="perdido".
+
+SE TEM EXPERIÊNCIA MAS NÃO TEM CURSO FORMAL:
+Valorize a experiência — prática também conta muito na área de cuidados.
+Diga que a Zelar considera o histórico profissional na avaliação.
+Peça que envie o currículo para: zelarsaudeecuidado@gmail.com
+Mencione que o perfil será analisado pela equipe.
+→ Quando confirmar que enviou: agradeça e encerre. stage="perdido".
+
+SE NÃO TEM CURSO NEM EXPERIÊNCIA:
+Acolha sem rejeitar. Explique com gentileza que para atuar como cuidador(a) é importante ter formação específica.
+Apresente como oportunidade que a própria Zelar oferece um curso de formação para quem quer entrar nessa profissão.
 Pergunte se ela gostaria de conhecer o curso.
-→ Se aceitar: switchFlow="fluxo_3" — vá direto para o PASSO 1 do fluxo do curso sem repetir o menu.
-→ Se recusar: encerre com gentileza. stage="perdido".
+→ Se aceitar: switchFlow="fluxo_3" — vá direto ao PASSO 1 do fluxo do curso, sem repetir o menu.
+→ Se não tiver interesse: encerre com gentileza. stage="perdido".
 
 REGRAS INTERNAS:
-- Nunca prometer contratação ou aprovação. O currículo será apenas analisado.
-- Nunca use "Você foi aprovado(a)" ou qualquer variação.
+- Nunca prometa contratação, aprovação ou vaga garantida. O currículo será analisado pela equipe.
+- Nunca use "Você foi aprovado(a)" ou qualquer variação de aprovação definitiva.
+- Se houver dúvida se a formação é válida, prefira pedir o currículo a rejeitar o candidato.
+- O objetivo principal é sempre receber o currículo para avaliação.
 
 ${REGRAS_STAGE}`;
 
@@ -336,7 +373,12 @@ function parseAiJson(raw: string): AiResponse {
       rawJson: JSON.stringify({ reply: text, action: 'none' }),
     } as AiResponse;
   }
-  const parsed: AiResponse = JSON.parse(jsonStr);
+  // Gemini Flash às vezes coloca quebras de linha reais dentro de strings JSON, invalidando o parse.
+  // Substituímos \n e \r dentro de valores de string antes de parsear.
+  const sanitized = jsonStr.replace(/("(?:[^"\\]|\\.)*")/g, (m) =>
+    m.replace(/\n/g, '\\n').replace(/\r/g, '\\r'),
+  );
+  const parsed: AiResponse = JSON.parse(sanitized);
   parsed.success = true;
   parsed.rawJson = jsonStr;
   return parsed;

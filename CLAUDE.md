@@ -91,17 +91,46 @@ VITE_API_URL=https://zelar-production.up.railway.app
 
 ---
 
-## Agente LIA (único)
+## Arquitetura Multiagente (Refatorado 2026-06-26+)
 
-Agente único da Zelar. Prompt padrão em `ai.service.ts` (`DEFAULT_PROMPT_LIA`), editável pelo operador na página Settings → salvo em `whatsapp_config.custom_prompt_lia` (banco vazio = usa o default do código).
+**Padrão 3 — Hybrid:** Roteador para casos ambígüos + especialistas com switchFlow automático para mudanças de escopo.
 
-Roteamento em `evolution.controller.ts` → `processMessage()` → sempre chama `aiService.processMessageLia()`.
+### Componentes
 
-A LIA cobre 4 fluxos no prompt (do `fluxo_zelar.docx`):
-1. **Cuidador** (domiciliar/hospitalar) — não implementado em detalhe ainda
-2. **Trabalhar como cuidador** — branch certificado sim/não
-3. **Curso de cuidador** ⭐ FOCO ATUAL
-4. **Jurídico** — encaminha para Lícia (33) 99544-5488
+**Roteador (ai.service.routeFlow)**
+- Identifica a intenção da mensagem quando não há `activeFlow`
+- Retorna o fluxo ou "none" (exibe menu)
+- Executa uma única vez ao início da conversa
+
+**4 Especialistas (processFlow)**
+- `fluxo_1` — Precisa de cuidador (domiciliar/hospitalar)
+- `fluxo_2` — Quero trabalhar como cuidador(a)
+- `fluxo_3` — Quero fazer o curso de cuidador(a)
+- `fluxo_4` — Suporte jurídico previdenciário
+
+Cada especialista:
+- Tem seu próprio prompt (`promptFluxo1`...`promptFluxo4` no banco, fallback `DEFAULT_PROMPT_*` no código)
+- Mantém contexto isolado por fluxo (`lead.aiContext[fluxo_X]`)
+- Pode emitir `switchFlow="fluxo_Y"` para redirecionar
+
+### switchFlow Encadeado (implementado 2026-06-28)
+Quando especialista detecta mudança de escopo e emite `switchFlow`:
+1. Envia a mensagem de transição do fluxo atual ("Entendo, deixa eu passar...")
+2. Chama o novo especialista na mesma requisição
+3. Envia a primeira resposta do novo especialista (ex: "me diz o seu nome")
+4. Lead não precisa mandar mensagem extra no vazio
+
+### Proteção Centralizada (leads.service.ts)
+Fonte única de verdade: `updateStage()` bloqueia regressão para changedBy != 'operator'
+- Nenhum caminho da IA consegue regredir o card
+- Operador tem liberdade total no Kanban
+
+### Por que Padrão 3 (Hybrid) e não Padrão 1 (Roteador contínuo)?
+**Padrão 1** (toda msg → roteador): Detecta 100% das mudanças mas **dobra latência + custo**
+**Padrão 3** (switchFlow nos especialistas): Eficiente + flexível, padrão usado no mercado
+- Roteador só identifica na primeira msg (sem activeFlow) ou em msgs genéricas
+- Especialistas detectam mudança de escopo via prompt → emitem switchFlow automático
+- Resultado: usuário não percebe a mudança, mas fluxo é fluido e barato
 
 ### Stages do Kanban (6 colunas — `frontend/src/data/mockData.js`)
 ```
@@ -239,26 +268,59 @@ zelar/
 
 ## Funcionalidades implementadas
 
-- ✅ Agente único LIA (OpenRouter principal + Gemini Flash Lite fallback automático)
-- ✅ **Fluxo 3 (Curso de Cuidador)** completo: apresentação → pagamento → confirmação → matrícula
-- ✅ PIX: envia imagem `pix-cora` + dados bancários em blocos [NEXT] separados
-- ✅ **Integração InfinitPay** — cartão gera link automático (`handle=zelarsaudeecuidado`)
-  - `order_nsu = lead.id` para rastrear quem pagou
-  - Webhook `POST /webhooks/infinitpay` valida com `/payment_check` e confirma automaticamente
-  - Página de redirecionamento pós-pagamento com botão WhatsApp
-- ✅ **Boleto manual**: action `aguardar_boleto` — LIA avisa cliente, operadora recebe notificação WhatsApp
-- ✅ **Follow-up automático** após pagamento confirmado — tempo e mensagem configuráveis em Settings
-- ✅ Botão "Confirmar Pagamento" no card com modal de confirmação
-- ✅ IA só avança stage — regressão exclusiva do operador no Kanban
-- ✅ Nome do lead protegido contra sobrescrita por terceiros
-- ✅ Filtro `OPERATOR_PHONES` — IA ignora mensagens do número da operadora
-- ✅ LeadModal atualiza mensagens em tempo real via WebSocket (`lead:updated`)
-- ✅ Kanban com 6 colunas do fluxo Zelar
-- ✅ STT via uazapi (Whisper)
-- ✅ Isolamento de instâncias (global webhook desativado + validação de token)
-- ✅ Supabase isolado (banco separado do fisio-secretary)
-- ✅ Prompt da LIA editável na página de Settings (`customPromptLia`)
-- ✅ Deploy em produção: Railway (backend) + Vercel (frontend)
+### Arquitetura e Roteamento
+- ✅ Arquitetura multiagente híbrida (roteador + 4 especialistas)
+- ✅ `switchFlow` encadeado — muda de fluxo na mesma requisição
+- ✅ Contexto isolado por fluxo (`lead.aiContext[fluxo_X]`)
+- ✅ Cada fluxo tem prompt customizável em Settings
+- ✅ Fallback: DEFAULT_PROMPT_* no código
+
+### Fluxo 3 (Curso de Cuidador) — Completo
+- ✅ Apresentação → pagamento → confirmação → matrícula
+- ✅ PIX: envia imagem `pix-cora` + dados em blocos [NEXT]
+- ✅ Cartão: gera link InfinitPay automático
+- ✅ Boleto: determinístico (backend conclui com nome + CPF 11)
+- ✅ Operador clica "Confirmar Pagamento" → reativa IA + envia form
+- ✅ Lead diz "preenchi" → vai pra `matriculado`
+
+### Fluxo 2 (Trabalhar como Cuidador) — Completo
+- ✅ Verifica se tem certificado
+- ✅ Se SIM: pede currículo para zelarsaudeecuidado@gmail.com
+- ✅ Se NÃO: oferece o curso (switchFlow pra fluxo_3)
+
+### Fluxo 4 (Jurídico) — Completo
+- ✅ Lista serviços em [NEXT] (duas mensagens separadas)
+- ✅ Encaminha pra Lícia (33) 99544-5488
+
+### Guards e Proteções
+- ✅ Causa raiz corrigida: `findOrCreate` não reseta stage
+- ✅ Proteção centralizada em `updateStage()` — só operador regride
+- ✅ IA pausa ao entrar em `aguardando_pagamento`
+- ✅ Supressão de marcos (pagamento_confirmado/matriculado) sem autorização
+- ✅ Boleto determinístico (backend, não depende do prompt)
+- ✅ Reações de WhatsApp ignoradas
+
+### Segurança e Isolamento
+- ✅ Isolamento de instâncias (global webhook desativado)
+- ✅ Validação de token por instância
+- ✅ Supabase isolado (separado do fisio-secretary)
+- ✅ Filtro `OPERATOR_PHONES` — IA ignora operadora
+- ✅ Nome protegido contra sobrescrita
+
+### Frontend e Realtime
+- ✅ Kanban 6 colunas + WebSocket em tempo real
+- ✅ Settings com abas por fluxo (Roteador + Fluxo 1-4)
+- ✅ Botão "Confirmar Pagamento" no card
+
+### LLM e Fallback
+- ✅ Gemini 2.5 Flash Lite (principal) → Flash (fallback) → texto
+- ✅ OpenRouter comentado (temporário)
+- ✅ STT via Whisper (uazapi)
+- ✅ TTS via OpenAI (só quando lead manda áudio)
+
+### Deploy
+- ✅ Railway (backend)
+- ✅ Vercel (frontend)
 
 ---
 
@@ -269,5 +331,13 @@ zelar/
   - 8 imagens de catálogo para cadastrar nas mídias
   - Pagamento via InfinitPay (já integrado)
   - Seleção de cuidador: MVP manual pelo operador
-- [ ] Fluxos 2 (trabalhar) e 4 (jurídico) — já no prompt, só testar
+
+- [ ] **Detecção de mudança de escopo** — implementação final
+  - Cada especialista precisa de bloco "SE PERGUNTA SOBRE OUTRO FLUXO, USE switchFlow"
+  - Bloco padrão a adicionar em fluxo_1, 2, 3, 4 no Settings
+
+- [ ] **Sumarizador de contexto** (opcional, para futuro)
+  - LLM barato (Gemini Flash Lite) resume contextualmente quando switchFlow
+  - Passa resumo como contexto pro novo especialista
+
 - [ ] Drag-and-drop no Kanban para mover cards manualmente entre colunas

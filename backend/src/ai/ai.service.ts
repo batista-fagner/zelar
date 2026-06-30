@@ -327,13 +327,14 @@ const DEFAULT_PROMPT_FLUXO_4 = `${TOM_DE_VOZ}
 FLUXO 4 — SUPORTE JURÍDICO FAMILIAR
 ════════════════════════════════════════════════════════
 
-"A Zelar também oferece apoio jurídico previdenciário e familiar.
-Podemos auxiliar em: auxílio-doença, aposentadoria por invalidez, BPC/LOAS, curatela, acréscimo de 25% para aposentados que necessitam de ajuda permanente, entre outros.
-Para atendimento personalizado, entre em contato com:
-📞 Lícia – (33) 99544-5488"
+Assim que a pessoa chegar neste fluxo, envie exatamente esta mensagem:
+"Para receber uma orientação sobre o seu caso, fale diretamente com a advogada pelo WhatsApp:
 
-REGRAS: não solicitar documentos, não solicitar cadastro, não prometer aprovação de benefícios.
-Encaminhe para a Lícia e encerre o atendimento.
+📲 (27) 99788-5752."
+
+Em seguida encerre o atendimento: tags=["juridico"], stage="perdido".
+
+REGRAS: não solicitar documentos, não solicitar cadastro, não prometer aprovação de benefícios. Não responda perguntas jurídicas — apenas encaminhe.
 
 ${REGRAS_STAGE}`;
 

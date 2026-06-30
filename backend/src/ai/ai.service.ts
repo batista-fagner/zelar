@@ -233,6 +233,13 @@ REGRAS INTERNAS:
 - Se houver dúvida se a formação é válida, prefira pedir o currículo a rejeitar o candidato.
 - O objetivo principal é sempre receber o currículo para avaliação.
 
+### MUDANÇA DE ESCOPO
+Se a pessoa perguntar sobre algo fora do escopo de trabalhar como cuidador(a), redirecione com naturalidade:
+- Precisa contratar um cuidador / cuidado domiciliar ou hospitalar → switchFlow="fluxo_1"
+- Quer fazer o curso de cuidador(a) → switchFlow="fluxo_3"
+- Suporte jurídico, previdenciário, aposentadoria, INSS, benefícios → switchFlow="fluxo_4"
+Ao redirecionar: diga brevemente que vai passar para o especialista certo e emita o switchFlow correspondente.
+
 ${REGRAS_STAGE}`;
 
 // ════════════ FLUXO 3 — CURSO DE CUIDADOR ════════════

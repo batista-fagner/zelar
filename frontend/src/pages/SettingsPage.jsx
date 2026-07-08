@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Wifi, WifiOff, Loader2, Smartphone, RotateCcw, AlertCircle, X, RefreshCw, Trash2, Radio, Plus } from 'lucide-react'
+import { Wifi, WifiOff, Loader2, Smartphone, RotateCcw, AlertCircle, X, RefreshCw, Trash2, Radio, Plus, Users, UserPlus } from 'lucide-react'
+import { getCaregivers, createCaregiver, updateCaregiver, deleteCaregiver } from '../services/api'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
@@ -65,6 +66,14 @@ export default function SettingsPage() {
   const [followupDelay, setFollowupDelay] = useState(60)
   const [followupMessage, setFollowupMessage] = useState('Olá! Já conseguiu preencher o formulário de matrícula? 😊')
   const [savingFollowup, setSavingFollowup] = useState(false)
+  // Fluxo 1 — cuidadores e valores dos planos
+  const [caregivers, setCaregivers] = useState([])
+  const [newCaregiverName, setNewCaregiverName] = useState('')
+  const [newCaregiverPhone, setNewCaregiverPhone] = useState('')
+  const [savingCaregiver, setSavingCaregiver] = useState(false)
+  const [caregiverError, setCaregiverError] = useState(null)
+  const [planValues, setPlanValues] = useState({ simples: '', medio: '', complexo: '', percent: 55 })
+  const [savingPlans, setSavingPlans] = useState(false)
   const pollingRef = useRef(null)
 
   const fetchStatus = async () => {
@@ -94,6 +103,14 @@ export default function SettingsPage() {
         fluxo_3: data?.promptFluxo3 ?? data?.customPromptLia ?? prev.fluxo_3,
         fluxo_4: data?.promptFluxo4 ?? prev.fluxo_4,
       }))
+      // Valores dos planos (Fluxo 1) — armazenados em centavos, exibidos em reais
+      const centsToReais = (c) => (c > 0 ? (c / 100).toString() : '')
+      setPlanValues({
+        simples: centsToReais(data?.planSimplesValue ?? 0),
+        medio: centsToReais(data?.planMedioValue ?? 0),
+        complexo: centsToReais(data?.planComplexoValue ?? 0),
+        percent: data?.caregiverPercent ?? 55,
+      })
       return data
     } catch {
       setInstanceConfig(null)
@@ -108,6 +125,61 @@ export default function SettingsPage() {
       setFollowupDelay(data.delayMinutes ?? 60)
       setFollowupMessage(data.message ?? '')
     } catch { /* silencioso */ }
+  }
+
+  const fetchCaregivers = async () => {
+    try {
+      const data = await getCaregivers()
+      setCaregivers(Array.isArray(data) ? data : [])
+    } catch { /* silencioso */ }
+  }
+
+  const handleAddCaregiver = async () => {
+    setCaregiverError(null)
+    setSavingCaregiver(true)
+    try {
+      await createCaregiver({ name: newCaregiverName.trim(), phone: newCaregiverPhone.replace(/\D/g, '') })
+      setNewCaregiverName('')
+      setNewCaregiverPhone('')
+      await fetchCaregivers()
+    } catch (err) {
+      setCaregiverError(err?.message || 'Não foi possível adicionar o cuidador.')
+    } finally {
+      setSavingCaregiver(false)
+    }
+  }
+
+  const handleToggleCaregiver = async (c) => {
+    try {
+      await updateCaregiver(c.id, { active: !c.active })
+      await fetchCaregivers()
+    } catch { /* silencioso */ }
+  }
+
+  const handleRemoveCaregiver = async (id) => {
+    try {
+      await deleteCaregiver(id)
+      await fetchCaregivers()
+    } catch { /* silencioso */ }
+  }
+
+  const handleSavePlans = async () => {
+    setSavingPlans(true)
+    try {
+      const reaisToCents = (v) => Math.max(0, Math.round(parseFloat(String(v).replace(',', '.')) * 100) || 0)
+      await fetch(`${API_URL}/instance/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planSimplesValue: reaisToCents(planValues.simples),
+          planMedioValue: reaisToCents(planValues.medio),
+          planComplexoValue: reaisToCents(planValues.complexo),
+          caregiverPercent: Math.max(0, Math.min(100, parseInt(planValues.percent, 10) || 55)),
+        }),
+      })
+    } finally {
+      setSavingPlans(false)
+    }
   }
 
   const fetchDefaultPrompts = async () => {
@@ -169,6 +241,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchDefaultPrompts()
     fetchFollowupConfig()
+    fetchCaregivers()
   }, [])
 
   useEffect(() => {
@@ -699,6 +772,127 @@ export default function SettingsPage() {
               {savingFollowup ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Card de cuidadores (Fluxo 1) */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Users className="w-4 h-4 text-teal-700" />
+            <h2 className="text-sm font-semibold text-gray-800">Cuidadores</h2>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Cuidadores ativos recebem no WhatsApp as solicitações de atendimento (Fluxo 1). O primeiro que responder <span className="font-medium">ACEITO</span> fica com o atendimento.</p>
+
+          {/* Lista */}
+          <div className="space-y-2 mb-4">
+            {caregivers.length === 0 && (
+              <p className="text-xs text-gray-400 py-2">Nenhum cuidador cadastrado ainda.</p>
+            )}
+            {caregivers.map(c => (
+              <div key={c.id} className="flex items-center gap-3 px-3 py-2 border border-gray-100 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{c.name}</p>
+                  <p className="text-xs text-gray-500">{c.phone}</p>
+                </div>
+                <button
+                  onClick={() => handleToggleCaregiver(c)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
+                    c.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                  title={c.active ? 'Ativo — clique para desativar' : 'Inativo — clique para ativar'}
+                >
+                  {c.active ? 'Ativo' : 'Inativo'}
+                </button>
+                <button
+                  onClick={() => handleRemoveCaregiver(c.id)}
+                  className="text-gray-300 hover:text-red-500 transition"
+                  title="Remover cuidador"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Formulário de adição */}
+          <div className="flex gap-2 flex-wrap items-start">
+            <input
+              type="text"
+              placeholder="Nome do cuidador"
+              value={newCaregiverName}
+              onChange={e => setNewCaregiverName(e.target.value)}
+              className="flex-1 min-w-[140px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <input
+              type="text"
+              placeholder="Telefone (ex: 27999999999)"
+              value={newCaregiverPhone}
+              onChange={e => setNewCaregiverPhone(e.target.value)}
+              className="flex-1 min-w-[140px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <button
+              onClick={handleAddCaregiver}
+              disabled={savingCaregiver || !newCaregiverName.trim() || newCaregiverPhone.replace(/\D/g, '').length < 10}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50"
+            >
+              {savingCaregiver ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+              Adicionar
+            </button>
+          </div>
+          {caregiverError && (
+            <p className="text-xs text-red-600 mt-2">{caregiverError}</p>
+          )}
+        </div>
+      )}
+
+      {/* Card de valores dos planos (Fluxo 1) */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">Valores dos planos (Fluxo 1)</h2>
+          <p className="text-xs text-gray-500 mb-4">Valor cobrado por atendimento conforme a complexidade. O cuidador recebe o percentual definido abaixo — enviado automaticamente na solicitação.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            {[
+              { key: 'simples', label: 'Simples' },
+              { key: 'medio', label: 'Médio' },
+              { key: 'complexo', label: 'Complexo' },
+            ].map(plan => (
+              <div key={plan.key}>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">{plan.label} (R$)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={planValues[plan.key]}
+                  onChange={e => setPlanValues(prev => ({ ...prev, [plan.key]: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-4 max-w-[200px]">
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">% repassado ao cuidador</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={planValues.percent}
+              onChange={e => setPlanValues(prev => ({ ...prev, percent: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <button
+            onClick={handleSavePlans}
+            disabled={savingPlans}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50"
+          >
+            {savingPlans ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {savingPlans ? 'Salvando...' : 'Salvar valores'}
+          </button>
         </div>
       )}
 

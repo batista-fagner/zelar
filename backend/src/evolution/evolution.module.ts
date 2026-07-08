@@ -18,6 +18,7 @@ import { AudioModule } from '../audio/audio.module';
 import { MediaModule } from '../media/media.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { InfinitpayModule } from '../infinitpay/infinitpay.module';
+import { CareModule } from '../care/care.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { InfinitpayModule } from '../infinitpay/infinitpay.module';
     MediaModule,
     AppointmentsModule,
     InfinitpayModule,
+    CareModule,
   ],
   controllers: [EvolutionController, InstanceController, AdminController],
   providers: [

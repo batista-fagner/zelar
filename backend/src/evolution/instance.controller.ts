@@ -61,6 +61,10 @@ export class InstanceController {
     promptFluxo2?: string | null;
     promptFluxo3?: string | null;
     promptFluxo4?: string | null;
+    planSimplesValue?: number;
+    planMedioValue?: number;
+    planComplexoValue?: number;
+    caregiverPercent?: number;
   }) {
     return this.whatsappConfigService.updateConfig(body);
   }

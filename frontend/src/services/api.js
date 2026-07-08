@@ -108,3 +108,24 @@ export const updateAppointment = (id, data) =>
 
 export const deleteAppointment = (id) =>
   fetch(`${BASE}/appointments/${id}`, { method: 'DELETE' }).then(json)
+
+// ── Cuidadores (Fluxo 1) ──
+export const getCaregivers = () =>
+  fetch(`${BASE}/caregivers`).then(json)
+
+export const createCaregiver = (data) =>
+  fetch(`${BASE}/caregivers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then(json)
+
+export const updateCaregiver = (id, data) =>
+  fetch(`${BASE}/caregivers/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then(json)
+
+export const deleteCaregiver = (id) =>
+  fetch(`${BASE}/caregivers/${id}`, { method: 'DELETE' }).then(json)

@@ -15,6 +15,9 @@ import { AudioService } from '../audio/audio.service';
 import { MediaService } from '../media/media.service';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { InfinitpayService } from '../infinitpay/infinitpay.service';
+import { CaregiversService } from '../care/caregivers.service';
+import { CareRequestsService } from '../care/care-requests.service';
+import { CareRequestSummary, CareComplexity } from '../common/entities/care-request.entity';
 
 @Controller('webhooks')
 export class EvolutionController implements OnModuleInit {
@@ -37,10 +40,15 @@ export class EvolutionController implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly appointmentsService: AppointmentsService,
     private readonly infinitpayService: InfinitpayService,
+    private readonly caregiversService: CaregiversService,
+    private readonly careRequestsService: CareRequestsService,
   ) {}
 
   onModuleInit() {
     this.leadsService.setFollowupSender((phone, message) =>
+      this.evolutionService.sendTextMessage(phone, message),
+    );
+    this.careRequestsService.setSender((phone, message) =>
       this.evolutionService.sendTextMessage(phone, message),
     );
   }
@@ -192,6 +200,15 @@ export class EvolutionController implements OnModuleInit {
   }
 
   private async processMessage(phone: string, combinedText: string, messageKeyId: string) {
+    // INTERCEPTAÇÃO DE CUIDADOR (Fluxo 1): telefones cadastrados como cuidadores NUNCA
+    // viram lead — a resposta deles (ex: "ACEITO") é tratada pelo serviço de solicitações.
+    const caregiver = await this.caregiversService.findActiveByPhone(phone);
+    if (caregiver) {
+      this.logger.log(`[CARE] Mensagem de cuidador ${caregiver.name} (${phone}) interceptada: "${combinedText.substring(0, 40)}"`);
+      await this.careRequestsService.handleCaregiverReply(caregiver, combinedText);
+      return;
+    }
+
     const { lead: leadInit, conversation } = await this.leadsService.findOrCreate(phone);
     let lead = leadInit;
 
@@ -326,6 +343,27 @@ export class EvolutionController implements OnModuleInit {
 
     this.logger.log(`LIA respondeu [flow=${flowKeyForContext}, stage=${aiResponse.stage}]: ${aiResponse.reply}`);
 
+    // FLUXO 1 — guarda os dados do atendimento coletados até aqui (nome, tipo, região,
+    // data, turno, complexidade) em lead.aiContext.careSummaryPending. O broadcast pros
+    // cuidadores só dispara DEPOIS do pagamento confirmado (CareRequestsService.triggerBroadcastAfterPayment),
+    // então esses dados precisam sobreviver até lá — são atualizados a cada resposta da IA.
+    if (flowKeyForContext === 'fluxo_1' && aiResponse.fields) {
+      const f = aiResponse.fields;
+      if (f.tipoCuidado && f.regiao && f.dataAtendimento && f.turno) {
+        const careSummaryPending = {
+          clientName: (f.name || lead.name || '').trim(),
+          tipoCuidado: f.tipoCuidado,
+          regiao: f.regiao,
+          dataAtendimento: f.dataAtendimento,
+          turno: f.turno,
+          complexidade: f.complexidade ?? null,
+        };
+        const currentContext = (lead.aiContext as any) ?? {};
+        lead.aiContext = { ...currentContext, careSummaryPending } as any;
+        await this.leadsService.update(lead.id, { aiContext: lead.aiContext } as any);
+      }
+    }
+
     // GUARD DETERMINÍSTICO — CONFIRMAÇÃO DE PAGAMENTO É EXCLUSIVA DO OPERADOR/WEBHOOK:
     // a IA NÃO pode confirmar pagamento nem enviar o formulário de matrícula por conta
     // própria. O formulário só sai pelo endpoint confirm-payment (botão do operador) ou
@@ -457,6 +495,48 @@ export class EvolutionController implements OnModuleInit {
       const beforePayment = (this.STAGE_ORDER[freshLead.stage] ?? 0) < this.STAGE_ORDER['aguardando_pagamento'];
       if (name && cpf.length === 11 && beforePayment) {
         await this.completeBoleto(freshLead, phone, conversation.id);
+        return;
+      }
+    }
+
+    // GUARD SOLICITAR CUIDADOR (Fluxo 1 — rede de segurança no backend, não confia 100% no prompt):
+    // só dispara o broadcast quando TODOS os dados estiverem válidos. Com dados incompletos,
+    // transforma em pergunta determinística pelo dado faltante.
+    if (aiResponse.action === 'solicitar_cuidador') {
+      const normalize = (s?: string | null) =>
+        (s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+      const f = aiResponse.fields ?? {};
+      const clientName = (f.name || lead.name || '').trim();
+      const tipoCuidado = (f.tipoCuidado ?? '').trim();
+      const regiao = (f.regiao ?? '').trim();
+      const dataAtendimento = (f.dataAtendimento ?? '').trim();
+      const turno = normalize(f.turno);
+      const turnoValid = ['manha', 'tarde', 'noite', 'integral'].includes(turno);
+      const dataValid = /^\d{2}\/\d{2}\/\d{4}$/.test(dataAtendimento);
+
+      const missingReply = !clientName ? 'Pra começar, me diz o seu nome, por favor 😊'
+        : !tipoCuidado ? 'Me conta rapidinho: pra quem é o cuidado e qual a necessidade?'
+        : !regiao ? 'Em qual bairro ou cidade será o atendimento?'
+        : !dataValid ? 'Pra qual data você precisa do atendimento? 😊'
+        : !turnoValid ? 'Qual período você prefere: manhã, tarde, noite ou integral?'
+        : null;
+
+      if (missingReply) {
+        this.logger.warn(`[CARE] solicitar_cuidador bloqueado — dados incompletos (nome=${!!clientName}, tipo=${!!tipoCuidado}, regiao=${!!regiao}, dataOk=${dataValid}, turnoOk=${turnoValid})`);
+        aiResponse.action = 'none';
+        aiResponse.stage = undefined;
+        aiResponse.reply = missingReply;
+      } else {
+        // Complexidade: classificação interna da IA — default 'medio' se vier inválida (não bloqueia o cliente)
+        const complexityRaw = normalize(f.complexidade);
+        const complexity: CareComplexity = (['simples', 'medio', 'complexo'].includes(complexityRaw)
+          ? complexityRaw : 'medio') as CareComplexity;
+
+        await this.completeCareRequest(lead, phone, conversation.id, {
+          clientName, tipoCuidado, regiao, dataAtendimento,
+          turno: turno as CareRequestSummary['turno'],
+        }, complexity, aiResponse.reply);
         return;
       }
     }
@@ -731,11 +811,20 @@ export class EvolutionController implements OnModuleInit {
     await this.leadsService.toggleAi(orderNsu, true);
     this.logger.log(`[InfinitPay] ✅ Pagamento confirmado automaticamente para lead ${orderNsu}`);
 
+    const updatedLead = await this.leadsService.findOne(orderNsu);
+    if (!updatedLead) return;
+
+    // FLUXO 1 — pagamento confirmado dispara o broadcast pros cuidadores (não envia formulário de curso)
+    if (updatedLead.activeFlow === 'fluxo_1') {
+      await this.careRequestsService.triggerBroadcastAfterPayment(updatedLead);
+      const finalLead = await this.leadsService.findOne(orderNsu);
+      this.leadsGateway.emitLeadUpdated(finalLead);
+      return;
+    }
+
     // LIA retoma e envia formulário de matrícula
     const instanceConfig = await this.whatsappConfigService.get();
     const confirmationMsg = '[Sistema] Pagamento confirmado automaticamente via InfinitPay. Envie o link do formulário de matrícula (PASSO 5).';
-    const updatedLead = await this.leadsService.findOne(orderNsu);
-    if (!updatedLead) return;
 
     const aiResponse = await this.aiService.processFlow(
       updatedLead,
@@ -855,6 +944,65 @@ export class EvolutionController implements OnModuleInit {
     await this.leadsService.updateStage(lead.id, 'aguardando_pagamento' as any, 'system');
     await this.leadsService.toggleAi(lead.id, false);
     this.logger.log(`[BOLETO] Concluído deterministicamente — ${phone} (${clientName}/${clientCpf}) → aguardando_pagamento, IA pausada`);
+
+    const updatedLead = await this.leadsService.findOne(lead.id);
+    this.leadsGateway.emitLeadUpdated(updatedLead);
+  }
+
+  /**
+   * Conclui o Fluxo 1 de forma DETERMINÍSTICA (não depende de o prompt reenviar tudo):
+   * envia a confirmação ao cliente, cria a solicitação e dispara o broadcast aos cuidadores.
+   * Chamado só quando o backend validou nome + tipo + região + data(DD/MM/AAAA) + turno.
+   */
+  private async completeCareRequest(
+    lead: any,
+    phone: string,
+    conversationId: string,
+    summary: Omit<CareRequestSummary, never>,
+    complexity: CareComplexity,
+    aiReply?: string,
+  ): Promise<void> {
+    // Salva o nome no lead se ainda não tiver (não sobrescreve nome existente)
+    if (!lead.name && summary.clientName) {
+      await this.leadsService.update(lead.id, { name: summary.clientName } as any);
+    }
+
+    // Idempotência: se já há uma solicitação em aberto para este lead, não dispara outra
+    if (await this.careRequestsService.hasPendingForLead(lead.id)) {
+      this.logger.warn(`[CARE] Lead ${phone} já tem solicitação pendente — broadcast ignorado`);
+      const dupMsg = 'Já estou localizando um cuidador para você e retorno em breve por aqui 😊';
+      await this.evolutionService.sendTextMessage(phone, dupMsg);
+      await this.leadsService.saveMessage(conversationId, 'outbound', 'ai', dupMsg);
+      return;
+    }
+
+    // Mensagem de confirmação ao cliente (usa a da IA se houver, senão um padrão)
+    const clientMsg = (aiReply && aiReply.trim())
+      ? aiReply.trim()
+      : 'Perfeito! Já vou localizar um cuidador disponível para o seu atendimento e retorno em breve por aqui 😊';
+    await this.evolutionService.sendTextMessage(phone, clientMsg);
+    await this.leadsService.saveMessage(conversationId, 'outbound', 'ai', clientMsg);
+
+    // Avança para em_atendimento (proteção de stage cuida de não regredir)
+    await this.safeUpdateStageForAi(lead.id, lead.stage, 'em_atendimento');
+
+    const freshLead = (await this.leadsService.findOne(lead.id)) ?? lead;
+    const request = await this.careRequestsService.createAndBroadcast(freshLead, summary as CareRequestSummary, complexity);
+
+    if (request) {
+      // Broadcast disparado: pausa a IA enquanto aguarda um cuidador aceitar.
+      // A retomada (aviso ao cliente) é feita pelo CareRequestsService ao designar o cuidador.
+      await this.leadsService.toggleAi(lead.id, false);
+    } else {
+      // Nenhum cuidador ativo cadastrado — avisa a operadora para tratar manualmente
+      const operatorPhone = (this.configService.get<string>('OPERATOR_PHONES') ?? '5527997885752')
+        .split(',')[0].replace(/\D/g, '');
+      const opMsg = `⚠️ *Solicitação de cuidador sem cuidadores cadastrados*\n\n👤 ${summary.clientName} (${phone})\n🗓 ${summary.dataAtendimento} — ${summary.turno}\n📍 ${summary.regiao}\n\nCadastre cuidadores no sistema ou trate manualmente.`;
+      this.evolutionService.sendTextMessage(operatorPhone, opMsg).catch(err =>
+        this.logger.error(`[CARE] Falha ao notificar operadora (sem cuidadores): ${err.message}`));
+    }
+
+    this.logger.log(`[CARE] Solicitação criada para ${phone} — complexidade=${complexity}, cuidadores notificados=${request?.notifiedPhones?.length ?? 0}`);
 
     const updatedLead = await this.leadsService.findOne(lead.id);
     this.leadsGateway.emitLeadUpdated(updatedLead);

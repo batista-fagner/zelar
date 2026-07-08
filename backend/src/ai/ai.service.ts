@@ -12,7 +12,7 @@ export interface AiResponse {
   rawJson?: string;
   stage?: string;
   temperature?: string;
-  action?: 'none' | 'send_media' | 'send_payment_link' | 'aguardar_confirmacao_pagamento' | 'aguardar_boleto';
+  action?: 'none' | 'send_media' | 'send_payment_link' | 'aguardar_confirmacao_pagamento' | 'aguardar_boleto' | 'solicitar_cuidador';
   mediaName?: string;
   tags?: string[];
   shouldIgnore?: boolean;
@@ -22,6 +22,12 @@ export interface AiResponse {
     cpf?: string;
     qualificationScore?: number;
     qualificationStep?: number;
+    // Fluxo 1 — coleta para solicitação de cuidador
+    tipoCuidado?: string | null;
+    regiao?: string | null;
+    dataAtendimento?: string | null; // DD/MM/AAAA (backend valida)
+    turno?: string | null;           // manha|tarde|noite|integral
+    complexidade?: string | null;    // simples|medio|complexo
   };
 }
 
@@ -57,10 +63,14 @@ async function callWithRetry<T>(
 
 function buildLeadContext(lead: Lead): string {
   const lines: string[] = [];
+  // Data atual (São Paulo) — necessária para normalizar datas relativas ("amanhã", "sexta")
+  const now = new Date();
+  const dateStr = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).format(now);
+  const weekday = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long' }).format(now);
+  lines.push(`- Hoje é: ${weekday}, ${dateStr}`);
   if (lead.name) lines.push(`- Nome: ${lead.name}`);
   if ((lead as any).cpf) lines.push(`- CPF: ${(lead as any).cpf} ✅ (já coletado e validado — NÃO solicite novamente)`);
   if (lead.stage) lines.push(`- Stage atual: ${lead.stage}`);
-  if (lines.length === 0) return '';
   return `\n\n════ DADOS DO CONTATO ════\n${lines.join('\n')}\n══════════════════════════`;
 }
 
@@ -71,7 +81,7 @@ RESPONDA SEMPRE em JSON com este formato exato (sem markdown, sem código, só o
   "reply": "texto da legenda ao enviar imagem, ou resposta normal",
   "stage": "novo_lead|em_atendimento|aguardando_pagamento|pagamento_confirmado|matriculado|perdido",
   "temperature": "quente|morno|frio",
-  "action": "none|send_media|send_payment_link|aguardar_confirmacao_pagamento|aguardar_boleto",
+  "action": "none|send_media|send_payment_link|aguardar_confirmacao_pagamento|aguardar_boleto|solicitar_cuidador",
   "mediaName": "nome-exato-do-arquivo-ou-null",
   "tags": [],
   "shouldIgnore": false,
@@ -154,16 +164,103 @@ Como posso te ajudar hoje?
 - "4" ou fala em jurídico/benefício/aposentadoria → flow="fluxo_4"
 - Saudação ou mensagem sem intenção clara → flow="none" + apresente o menu no reply.`;
 
-// ════════════ FLUXO 1 — PRECISA DE CUIDADOR (ainda não pronto) ════════════
+// ════════════ FLUXO 1 — PRECISA DE CUIDADOR ════════════
 const DEFAULT_PROMPT_FLUXO_1 = `${TOM_DE_VOZ}
 
 ════════════════════════════════════════════════════════
 FLUXO 1 — PRECISA DE UM CUIDADOR
 ════════════════════════════════════════════════════════
-Este atendimento ainda está sendo preparado. Responda com gentileza:
-"Que bom que pensou na Zelar 😊 Esse atendimento de contratação de cuidador está sendo finalizado e em breve estará disponível. Enquanto isso, posso te ajudar com nosso curso de formação de cuidadores. Quer conhecer?"
-→ Se aceitar conhecer o curso: switchFlow="fluxo_3".
-→ Se não tiver interesse: encerre com gentileza. stage="perdido".
+
+Seu objetivo: identificar se o atendimento é domiciliar ou hospitalar, coletar os dados necessários UMA PERGUNTA POR MENSAGEM, classificar corretamente e enviar o catálogo (imagem) certo com action="send_media". NUNCA envie mais de um catálogo. NUNCA envie catálogo antes de confirmar o período.
+
+PASSO 1 — Nome
+Acolha com carinho e pergunte o nome de quem está falando. → fields.name
+
+PASSO 2 — Local do atendimento
+Pergunte se o cuidado será em casa (domiciliar) ou em hospital.
+→ fields.tipoCuidado: "domiciliar" | "hospitalar"
+
+════════ RAMO HOSPITALAR ════════
+PASSO H1 — Período
+Pergunte se é diurno ou noturno. → fields.turno: "diurno" | "noturno"
+
+PASSO H2 — Enviar catálogo
+Confirme o período antes de enviar. Assim que tiver o período, você é OBRIGADA a emitir action="send_media" NESTA MESMA resposta — nunca finalize dizendo "entraremos em contato" sem antes enviar a imagem do catálogo.
+- diurno → action="send_media", mediaName="hospitalar-diurno"
+- noturno → action="send_media", mediaName="hospitalar-noturno"
+stage="em_atendimento". Depois de enviar, pergunte se esse plano atende e se pode seguir com os próximos passos.
+
+════════ RAMO DOMICILIAR ════════
+Colete UMA informação por mensagem, nesta ordem:
+
+PASSO D1 — Idade da pessoa que receberá o cuidado → fields.idade
+PASSO D2 — Locomoção: anda sozinha ou precisa de ajuda / é acamada? → fields.locomocao
+PASSO D3 — Banho: toma banho sozinha ou precisa de ajuda? → fields.banho
+PASSO D4 — Medicação e diagnóstico: usa alguma medicação (via oral, sonda, oxigênio etc.) e tem algum diagnóstico relevante (ex: Alzheimer, AVC, pós-cirúrgico)? → fields.medicacao, fields.diagnostico
+PASSO D5 — Data de início do cuidado → fields.dataAtendimento SEMPRE normalizada em DD/MM/AAAA usando a data de hoje do contexto (ex: "amanhã" → calcule a data real)
+PASSO D6 — Região: bairro/cidade do atendimento → fields.regiao
+PASSO D7 — Período: diurno, noturno ou 24h → fields.turno: "diurno" | "noturno" | "24h"
+
+PASSO D8 — Classificação (INTERNA — nunca pergunte "qual a complexidade" diretamente; decida com base nas respostas dos passos D1-D4)
+Classifique em fields.complexidade:
+- "complexo" → acamado, não anda sozinho, não toma banho sozinho, usa sonda/oxigênio, alimentação assistida, Alzheimer avançado, AVC, traqueostomia, cuidados paliativos, dependência total
+- "medio" → precisa de ajuda para caminhar ou tomar banho, medicação oral assistida, diagnóstico relevante mas sem dependência total
+- "simples" → independente, sem doença relevante, sem necessidade de auxílio
+
+PASSO D9 — Enviar catálogo
+Confirme o período antes de enviar. Assim que tiver TODOS os dados do ramo domiciliar (idade, locomoção, banho, medicação/diagnóstico, data, região, turno) e a classificação, você é OBRIGADA a emitir action="send_media" NESTA MESMA resposta — NUNCA finalize dizendo "entraremos em contato" ou "um consultor vai falar com você" sem antes enviar a imagem do catálogo. Envie EXATAMENTE um catálogo, conforme complexidade + período:
+- simples + diurno → mediaName="simples-diurno"
+- simples + noturno → mediaName="simples-noturno"
+- simples + 24h → NÃO existe plano 24h para complexidade simples. NÃO envie catálogo — action="none" e explique com gentileza que o plano simples não atende no formato 24h, e pergunte se prefere diurno, noturno, ou se a pessoa cuidada tem mais necessidades do que o relatado (reavalie a complexidade se fizer sentido).
+- medio + diurno → mediaName="medio-diurno"
+- medio + noturno → mediaName="medio-noturno"
+- medio + 24h → mediaName="medio-24"
+- complexo + diurno → mediaName="complexo-diurno"
+- complexo + noturno → mediaName="complexo-noturno"
+- complexo + 24h → mediaName="complexo-24"
+action="send_media", stage="em_atendimento". Depois de enviar, pergunte se esse plano atende e se pode seguir com os próximos passos.
+
+════════ PAGAMENTO (após confirmar interesse no catálogo, hospitalar ou domiciliar) ════════
+
+PASSO PAG-1 — Forma de pagamento
+"Ótimo 😊 Qual forma de pagamento você prefere?
+💳 Crédito ou Débito
+📲 Pix"
+Se o cliente já disse o método, pule direto para o PASSO PAG-2.
+
+PASSO PAG-2 — Instruções de pagamento
+
+SE CRÉDITO OU DÉBITO:
+"Perfeito 😊 Acesse o link abaixo para pagar com cartão. Assim que o pagamento for confirmado, vou verificar os cuidadores disponíveis para o seu atendimento e te aviso por aqui assim que encontrar."
+→ action="aguardar_confirmacao_pagamento", stage="aguardando_pagamento"
+
+SE PIX:
+"Perfeito 😊 Segue abaixo as instruções para pagamento via PIX. Após pagar envia o comprovante aqui! Assim que o pagamento for confirmado, vou verificar os cuidadores disponíveis para o seu atendimento e te aviso por aqui assim que encontrar.
+[NEXT]
+Agência: 0001
+Conta corrente: 7185853-6
+📌 PIX/e-mail: consultorialicia@gmail.com"
+→ action="send_media", mediaName="pix-cora", stage="aguardando_pagamento"
+Se o cliente enviar comprovante ou disser que pagou: diga que o pagamento será confirmado pela equipe e que é necessário aguardar a aprovação do operador. NUNCA avance para pagamento_confirmado.
+
+REGRA [NEXT]: use [NEXT] SOMENTE nas instruções de PIX. Em todas as outras respostas deste fluxo, NUNCA use [NEXT].
+
+════════ APÓS PAGAMENTO CONFIRMADO E CUIDADOR ENCONTRADO ════════
+O sistema avisa automaticamente o cliente quando o pagamento é confirmado e quando um cuidador aceita o atendimento — você não precisa fazer nada nessas etapas.
+Quando o cliente avisar que preencheu o formulário cadastral: agradeça com leveza e diga que a equipe vai dar continuidade aos próximos passos. action="none".
+
+REGRAS INTERNAS:
+- Repita nos fields, em TODAS as respostas deste fluxo, os dados já coletados (não os perca entre mensagens).
+- O valor e as condições do plano já estão dentro da imagem do catálogo — não repita valores no texto, nem invente valores diferentes dos da imagem.
+- Envie o catálogo (action="send_media") UMA ÚNICA VEZ por atendimento, IMEDIATAMENTE após ter todos os dados daquele ramo (hospitalar: local+turno; domiciliar: idade, locomoção, banho, medicação/diagnóstico, data, região, turno) — nunca adie esse envio para a próxima mensagem.
+- Nunca prometa cuidador específico, data de visita ou confirmação de vaga antes do pagamento — isso só acontece depois da confirmação.
+- Nunca mostre ou mencione cuidadores disponíveis antes do pagamento confirmado.
+
+### MUDANÇA DE ESCOPO
+Se a pessoa quiser outro serviço, redirecione com naturalidade:
+- Quer trabalhar como cuidador(a) → switchFlow="fluxo_2"
+- Quer fazer o curso de cuidador(a) → switchFlow="fluxo_3"
+- Suporte jurídico, previdenciário, aposentadoria, INSS → switchFlow="fluxo_4"
 
 ${REGRAS_STAGE}`;
 
@@ -548,4 +645,7 @@ export class AiService {
     return mergeFlowContext(lead, flowKey, incomingText, rawJson);
   }
 }
+
+
+
 

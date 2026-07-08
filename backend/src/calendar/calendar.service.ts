@@ -75,6 +75,53 @@ export class CalendarService {
     }
   }
 
+  /**
+   * Registra um atendimento de cuidador no calendário da Zelar (Fluxo 1).
+   * Write-only e opcional: sem credenciais configuradas, loga e retorna null sem quebrar o fluxo.
+   */
+  async createCareEvent(params: {
+    caregiverName: string;
+    caregiverPhone: string;
+    clientName: string;
+    clientPhone: string;
+    tipoCuidado: string;
+    regiao: string;
+    start: Date;
+    durationHours?: number;
+  }): Promise<{ id: string; htmlLink: string } | null> {
+    if (!this.calendarId || !this.config.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')) {
+      this.logger.warn('Google Calendar não configurado (GOOGLE_CALENDAR_ID/GOOGLE_SERVICE_ACCOUNT_EMAIL) — evento de atendimento não criado');
+      return null;
+    }
+
+    const { caregiverName, caregiverPhone, clientName, clientPhone, tipoCuidado, regiao, start, durationHours = 4 } = params;
+    const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+
+    try {
+      const calendar = google.calendar({ version: 'v3', auth: this.auth });
+
+      const event = await calendar.events.insert({
+        calendarId: this.calendarId,
+        requestBody: {
+          summary: `Atendimento — ${caregiverName} → ${clientName}`,
+          description:
+            `Cuidador(a): ${caregiverName} (${caregiverPhone})\n` +
+            `Cliente: ${clientName} (${clientPhone})\n` +
+            `Tipo de cuidado: ${tipoCuidado}\n` +
+            `Região: ${regiao}`,
+          start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
+          end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
+        },
+      });
+
+      this.logger.log(`Evento de atendimento criado: ${event.data.htmlLink}`);
+      return { id: event.data.id ?? '', htmlLink: event.data.htmlLink ?? '' };
+    } catch (err) {
+      this.logger.error(`Erro ao criar evento de atendimento: ${err.message}`);
+      return null;
+    }
+  }
+
   async cancelAppointment(eventId: string): Promise<boolean> {
     try {
       const calendar = google.calendar({ version: 'v3', auth: this.auth });

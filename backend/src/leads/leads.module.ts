@@ -13,6 +13,7 @@ import { LeadsController } from './leads.controller';
 import { LeadsGateway } from './leads.gateway';
 import { EvolutionModule } from '../evolution/evolution.module';
 import { AiModule } from '../ai/ai.module';
+import { CareModule } from '../care/care.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AiModule } from '../ai/ai.module';
     TypeOrmModule.forFeature([Lead, Conversation, Message, LeadStageHistory, DeletedLead, Appointment, WhatsappConfig]),
     forwardRef(() => EvolutionModule),
     AiModule,
+    forwardRef(() => CareModule),
   ],
   providers: [LeadsService, LeadsGateway],
   controllers: [LeadsController],

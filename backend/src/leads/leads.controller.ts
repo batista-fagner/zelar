@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Delete, Body, Query, Inject } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Delete, Body, Query, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { LeadsService } from './leads.service';
@@ -6,6 +6,7 @@ import { LeadsGateway } from './leads.gateway';
 import { EvolutionService } from '../evolution/evolution.service';
 import { WhatsappConfigService } from '../evolution/whatsapp-config.service';
 import { AiService } from '../ai/ai.service';
+import { CareRequestsService } from '../care/care-requests.service';
 
 @Controller('leads')
 export class LeadsController {
@@ -16,6 +17,8 @@ export class LeadsController {
     private readonly evolutionService: EvolutionService,
     private readonly whatsappConfigService: WhatsappConfigService,
     private readonly aiService: AiService,
+    @Inject(forwardRef(() => CareRequestsService))
+    private readonly careRequestsService: CareRequestsService,
   ) {}
 
   @Get()
@@ -84,12 +87,21 @@ export class LeadsController {
     await this.leadsService.updateStage(id, 'pagamento_confirmado' as any, 'operator');
     await this.leadsService.toggleAi(id, true);
 
+    const updatedLead = await this.leadsService.findOne(id);
+    if (!updatedLead) return { ok: false };
+
+    // FLUXO 1 — pagamento confirmado dispara o broadcast pros cuidadores (não envia formulário de curso)
+    if (updatedLead.activeFlow === 'fluxo_1') {
+      await this.careRequestsService.triggerBroadcastAfterPayment(updatedLead);
+      const finalLead = await this.leadsService.findOne(id);
+      this.leadsGateway.emitLeadUpdated(finalLead);
+      return { ok: true };
+    }
+
     // LIA retoma automaticamente com a confirmação
     const instanceConfig = await this.whatsappConfigService.get();
     const confirmationMsg = '[Sistema] O operador confirmou o pagamento. Retome a conversa enviando o link do formulário de matrícula conforme o PASSO 5.';
 
-    const updatedLead = await this.leadsService.findOne(id);
-    if (!updatedLead) return { ok: false };
     const aiResponse = await this.aiService.processFlow(
       updatedLead,
       confirmationMsg,

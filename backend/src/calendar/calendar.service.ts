@@ -44,6 +44,44 @@ export class CalendarService {
     }
   }
 
+  /** True se as credenciais/ID do Google Calendar estão configurados. */
+  isConfigured(): boolean {
+    return !!this.calendarId && !!this.config.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
+  }
+
+  /**
+   * Lê os TÍTULOS de todos os eventos da agenda central num dia (00:00→23:59, fuso SP).
+   * Usado pela checagem de disponibilidade do Fluxo 1: a Licia marca manualmente eventos
+   * "Nome do cuidador — turno" nos dias em que cada cuidador está disponível.
+   * Retorna `null` (checagem desativada) se o Calendar não estiver configurado — assim
+   * o fluxo degrada graciosamente e não bloqueia ninguém enquanto a agenda não existe.
+   */
+  async listEventTitlesForDay(date: Date): Promise<string[] | null> {
+    if (!this.isConfigured()) return null;
+
+    // Limites do dia no fuso de São Paulo (-03:00)
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const dayStart = new Date(`${y}-${m}-${d}T00:00:00-03:00`);
+    const dayEnd = new Date(`${y}-${m}-${d}T23:59:59-03:00`);
+
+    try {
+      const calendar = google.calendar({ version: 'v3', auth: this.auth });
+      const response = await calendar.events.list({
+        calendarId: this.calendarId,
+        timeMin: dayStart.toISOString(),
+        timeMax: dayEnd.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+      });
+      return (response.data.items ?? []).map(e => e.summary ?? '').filter(Boolean);
+    } catch (err) {
+      this.logger.error(`Erro ao listar eventos do dia: ${err.message}`);
+      return null; // erro de leitura → não bloqueia o fluxo
+    }
+  }
+
   async createAppointment(params: {
     leadName: string;
     phone: string;

@@ -96,6 +96,118 @@ export class CareRequestsService implements OnApplicationBootstrap {
     return { planValue, caregiverValue: Math.round(planValue * percent / 100) };
   }
 
+  /**
+   * DISPONIBILIDADE (Fluxo 1) — cuidadores realmente livres numa data + turno.
+   * Modelo de 2 camadas:
+   *   1. Agenda central (Google Calendar): a Licia marca eventos "Nome — turno" nos dias
+   *      em que cada cuidador está disponível. Quem NÃO está marcado = indisponível.
+   *   2. Compromissos já confirmados (banco `care_requests` status='aceito'): subtraídos,
+   *      pois esse cuidador já foi comprometido com outro cliente naquele dia+turno.
+   * Retorna:
+   *   - `null` → checagem DESATIVADA (agenda não configurada ou data inválida): o chamador
+   *     deve tratar como "todos os ativos" (degradação graciosa, comportamento legado).
+   *   - `Caregiver[]` → lista (possivelmente vazia) dos livres quando a checagem está ativa.
+   */
+  async findAvailableCaregivers(dataStr: string, turno: string): Promise<Caregiver[] | null> {
+    const date = this.parseStartDate(dataStr, turno);
+    if (!date) return null;
+
+    const titles = await this.calendarService.listEventTitlesForDay(date);
+    if (titles === null) return null; // agenda não configurada → checagem desativada
+
+    const active = await this.caregiversService.findAllActive();
+
+    // 1. Marcados como disponíveis na agenda para o turno pedido
+    const availableByAgenda = active.filter(c =>
+      titles.some(title => this.availabilityTitleMatches(title, c.name, turno)));
+
+    // 2. Remove os já comprometidos (care_requests aceitos nesse mesmo dia + turno)
+    const accepted = await this.requestsRepo.find({ where: { status: 'aceito' } });
+    const busyCaregiverIds = new Set(
+      accepted
+        .filter(r => r.summary?.dataAtendimento === dataStr && r.summary?.turno === turno)
+        .map(r => r.assignedCaregiverId)
+        .filter(Boolean),
+    );
+
+    return availableByAgenda.filter(c => !busyCaregiverIds.has(c.id));
+  }
+
+  /**
+   * Um evento da agenda representa disponibilidade do cuidador `name` no `turno`?
+   * Convenção: o título deve conter o PRIMEIRO NOME do cuidador + a palavra do turno
+   * (ex.: "João — diurno", "Maria (noturno)", "Carlos 24h"). Eventos de atendimento
+   * gerados pelo sistema ("Atendimento — ...") são ignorados (não são disponibilidade).
+   */
+  private availabilityTitleMatches(title: string, caregiverName: string, turno: string): boolean {
+    const t = normalizeText(title);
+    if (!t || t.startsWith('atendimento')) return false;
+
+    const firstName = normalizeText(caregiverName).split(/\s+/)[0];
+    if (!firstName || !t.includes(firstName)) return false;
+
+    if (turno === '24h') return /24\s*h|24\s*horas|\b24\b/.test(t);
+    return t.includes(turno); // 'diurno' | 'noturno'
+  }
+
+  /**
+   * Checagem usada ANTES de mostrar o catálogo (Fluxo 1): há cuidador livre na data+turno?
+   * - checked=false → checagem desativada (agenda não configurada): siga o fluxo normalmente.
+   * - available=true → há cuidador; siga para o catálogo/pagamento.
+   * - available=false → ninguém livre: `message` pede outra data ou outro turno.
+   */
+  async checkDateAvailability(dataStr: string, turno: string): Promise<{ checked: boolean; available: boolean; message: string }> {
+    const list = await this.findAvailableCaregivers(dataStr, turno);
+    if (list === null) return { checked: false, available: true, message: '' };
+    if (list.length > 0) return { checked: true, available: true, message: '' };
+
+    const label = (TURNO_LABEL[turno] ?? turno).toLowerCase();
+    return {
+      checked: true,
+      available: false,
+      message: `Poxa, pra ${dataStr} no período ${label} não temos cuidador disponível no momento 😔 ` +
+        `Você teria outra data em mente, ou prefere outro período (diurno, noturno ou 24h)?`,
+    };
+  }
+
+  /**
+   * Cancela o atendimento aceito de um lead (Fluxo 1) — acionado pelo operador no Kanban.
+   * Muda o status para 'cancelado' (libera o cuidador nas próximas checagens de
+   * disponibilidade) e remove o evento de atendimento da agenda. NÃO toca nos eventos
+   * de disponibilidade marcados pela Licia.
+   */
+  async cancelForLead(leadId: string): Promise<CareRequest | null> {
+    const request = await this.requestsRepo.findOne({
+      where: { leadId, status: 'aceito' },
+      order: { createdAt: 'DESC' },
+    });
+    if (!request) return null;
+
+    request.status = 'cancelado';
+    await this.requestsRepo.save(request);
+
+    if (request.calendarEventId) {
+      await this.calendarService.cancelAppointment(request.calendarEventId).catch(err =>
+        this.logger.error(`[CARE] Falha ao remover evento do Calendar ao cancelar: ${err.message}`));
+    }
+
+    // Remove a etiqueta de cuidador designado do lead
+    try {
+      const lead = await this.leadsService.findOne(leadId);
+      if (lead) {
+        const labels = (lead.labels ?? []).filter(l => l !== 'cuidador_designado');
+        await this.leadsService.update(lead.id, { labels } as any);
+        const updated = await this.leadsService.findOne(lead.id);
+        this.leadsGateway.emitLeadUpdated(updated);
+      }
+    } catch (err) {
+      this.logger.error(`[CARE] Falha ao remover etiqueta ao cancelar: ${err.message}`);
+    }
+
+    this.logger.log(`[CARE] Atendimento ${request.id} cancelado (lead ${leadId})`);
+    return request;
+  }
+
   /** Já existe solicitação em aberto para este lead? (evita broadcast duplicado) */
   async hasPendingForLead(leadId: string): Promise<boolean> {
     const pending = await this.requestsRepo.findOne({
@@ -155,7 +267,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
     const request = await this.createAndBroadcast(lead, summary, complexity);
     if (!request) {
       await this.send(this.operatorPhone(),
-        `⚠️ Pagamento confirmado para ${summary.clientName} mas nenhum cuidador ativo cadastrado — atender manualmente.`
+        `⚠️ Pagamento confirmado para ${summary.clientName} mas nenhum cuidador disponível para essa data/turno — atender manualmente.`
       ).catch(() => {});
     }
   }
@@ -165,9 +277,12 @@ export class CareRequestsService implements OnApplicationBootstrap {
    * Retorna null se não houver cuidadores ativos cadastrados.
    */
   async createAndBroadcast(lead: Lead, summary: CareRequestSummary, complexity: CareComplexity): Promise<CareRequest | null> {
-    const caregivers = await this.caregiversService.findAllActive();
+    // Se a checagem de disponibilidade estiver ativa (agenda configurada), o broadcast vai
+    // SÓ para os cuidadores livres na data+turno; senão, cai no legado (todos os ativos).
+    const availableList = await this.findAvailableCaregivers(summary.dataAtendimento, summary.turno);
+    const caregivers = availableList ?? await this.caregiversService.findAllActive();
     if (caregivers.length === 0) {
-      this.logger.warn('[CARE] Nenhum cuidador ativo cadastrado — broadcast abortado');
+      this.logger.warn(`[CARE] Nenhum cuidador ${availableList ? 'disponível na data/turno' : 'ativo cadastrado'} — broadcast abortado`);
       return null;
     }
 

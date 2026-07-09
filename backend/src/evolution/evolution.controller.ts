@@ -565,6 +565,27 @@ export class EvolutionController implements OnModuleInit {
       await this.safeUpdateStageForAi(lead.id, lead.stage, aiResponse.stage);
     }
 
+    // FLUXO 1 — CHECAGEM DE DISPONIBILIDADE ANTES DO CATÁLOGO.
+    // Só faz sentido oferecer o plano se houver cuidador livre na data+turno pedidos.
+    // A checagem lê a agenda central (Google Calendar) e subtrai os já comprometidos
+    // (care_requests aceitos). Se a agenda não estiver configurada, degrada e não bloqueia.
+    // Aplica-se apenas às mídias de catálogo (simples/medio/complexo/hospitalar-*), nunca ao PIX.
+    if (
+      flowKeyForContext === 'fluxo_1' &&
+      aiResponse.action === 'send_media' &&
+      aiResponse.mediaName &&
+      /^(simples|medio|complexo|hospitalar)-/.test(aiResponse.mediaName)
+    ) {
+      const pend = (lead.aiContext as any)?.careSummaryPending ?? {};
+      const check = await this.careRequestsService.checkDateAvailability(pend.dataAtendimento, pend.turno);
+      if (check.checked && !check.available) {
+        this.logger.warn(`[CARE] Sem cuidador disponível em ${pend.dataAtendimento}/${pend.turno} — catálogo não enviado`);
+        aiResponse.action = 'none';
+        aiResponse.stage = undefined;
+        aiResponse.reply = check.message;
+      }
+    }
+
     // Envio de mídia (imagem/vídeo cadastrada no sistema)
     if (aiResponse.action === 'send_media' && aiResponse.mediaName) {
       const mediaFile = await this.mediaService.findByName(aiResponse.mediaName);
@@ -587,7 +608,7 @@ export class EvolutionController implements OnModuleInit {
         }
         // Pausa a IA apenas para mídia de pagamento (PIX), aguardando confirmação do operador.
         // Mídias informativas (ex: catálogo do curso) NÃO pausam a IA.
-        const isPaymentMedia = aiResponse.mediaName === 'pix-cora';
+        const isPaymentMedia = aiResponse.mediaName.startsWith('pix-');
         if (isPaymentMedia) {
           await this.leadsService.toggleAi(lead.id, false);
         }

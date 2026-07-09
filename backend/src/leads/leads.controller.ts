@@ -120,6 +120,13 @@ export class LeadsController {
     return { ok: true };
   }
 
+  @Post(':id/cancel-care')
+  async cancelCare(@Param('id') id: string) {
+    const request = await this.careRequestsService.cancelForLead(id);
+    if (!request) return { ok: false, error: 'Nenhum atendimento aceito encontrado para este lead' };
+    return { ok: true };
+  }
+
   @Patch(':id/observations')
   async updateObservations(@Param('id') id: string, @Body() body: { observations: string }) {
     const lead = await this.leadsService.update(id, { observations: body.observations } as any);

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, Edit2, Calendar, Clock, CheckCircle } from 'lucide-react'
+import { Trash2, Edit2, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { updateName } from '../services/api'
 
@@ -58,6 +58,24 @@ export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
   const [editName, setEditName] = useState(lead.name || '')
   const [confirmingPayment, setConfirmingPayment] = useState(false)
   const [showConfirmPaymentModal, setShowConfirmPaymentModal] = useState(false)
+  const [cancelingCare, setCancelingCare] = useState(false)
+  const [showCancelCareModal, setShowCancelCareModal] = useState(false)
+
+  const hasCaregiverAssigned = (lead.labels ?? []).includes('cuidador_designado')
+
+  async function handleCancelCare() {
+    setCancelingCare(true)
+    setShowCancelCareModal(false)
+    try {
+      const res = await fetch(`${API_URL}/leads/${lead.id}/cancel-care`, { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) onLeadUpdate?.({ ...lead, labels: (lead.labels ?? []).filter((l) => l !== 'cuidador_designado') })
+    } catch (err) {
+      console.error('Erro ao cancelar atendimento:', err)
+    } finally {
+      setCancelingCare(false)
+    }
+  }
 
   async function handleConfirmPayment() {
     setConfirmingPayment(true)
@@ -222,6 +240,56 @@ export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
             <CheckCircle className="w-3.5 h-3.5" />
             {confirmingPayment ? 'Confirmando...' : 'Confirmar Pagamento'}
           </button>
+        </div>
+      )}
+
+      {/* Botão cancelar atendimento (cuidador já designado) */}
+      {hasCaregiverAssigned && (
+        <div className="mt-2 pt-2 border-t border-rose-100">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setShowCancelCareModal(true) }}
+            disabled={cancelingCare}
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors disabled:opacity-50"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            {cancelingCare ? 'Cancelando...' : 'Cancelar atendimento'}
+          </button>
+        </div>
+      )}
+
+      {/* Modal de cancelamento de atendimento */}
+      {showCancelCareModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-xl shadow-xl p-6 w-72 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center shrink-0">
+                <XCircle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">Cancelar atendimento?</h3>
+                <p className="text-xs text-gray-500 mt-0.5">O cuidador de <span className="font-medium">{lead.name || lead.phone}</span> será liberado e voltará a ficar disponível na agenda para essa data.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCancelCareModal(false)}
+                className="flex-1 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={handleCancelCare}
+                className="flex-1 py-2 text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 rounded-lg transition"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

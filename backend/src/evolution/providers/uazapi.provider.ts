@@ -39,16 +39,40 @@ export class UazapiProvider implements IWhatsAppProvider {
   async sendTextMessage(phone: string, text: string, token?: string): Promise<void> {
     const useToken = await this.resolveToken(token);
     try {
-      await firstValueFrom(
+      const res = await firstValueFrom(
         this.http.post(
           `${this.baseUrl}/send/text`,
           { number: phone, text },
           { headers: { token: useToken } },
         ),
       );
+      const messageid = (res.data as any)?.messageid;
+      const status = (res.data as any)?.status;
+      this.logger.log(`[SEND] → ${phone} | messageid=${messageid} status=${status}`);
+      if (messageid) this.scheduleDeliveryCheck(phone, messageid, useToken);
     } catch (err) {
       this.logger.error(`Erro ao enviar mensagem para ${phone}: ${err.message}`);
     }
+  }
+
+  /** Reconsulta o status da mensagem depois de um tempo — ajuda a diagnosticar
+   * entregas presas em "Sent" (aceita pela uazapi, mas não confirmada no aparelho). */
+  private scheduleDeliveryCheck(phone: string, messageid: string, token: string) {
+    setTimeout(async () => {
+      try {
+        const res = await firstValueFrom(
+          this.http.post(
+            `${this.baseUrl}/message/find`,
+            { id: messageid },
+            { headers: { token } },
+          ),
+        );
+        const found = (res.data as any)?.messages?.[0];
+        this.logger.log(`[DELIVERY-CHECK] ${phone} | messageid=${messageid} status=${found?.status ?? 'não encontrada'}`);
+      } catch (err) {
+        this.logger.warn(`[DELIVERY-CHECK] Falha ao checar status de ${messageid}: ${err.message}`);
+      }
+    }, 20000);
   }
 
   async sendAudioMessage(phone: string, audioBuffer: Buffer, token?: string): Promise<void> {

@@ -248,10 +248,8 @@ SE CRÉDITO OU DÉBITO:
 SE PIX:
 "Perfeito 😊 Segue abaixo as instruções para pagamento via PIX. Após pagar envia o comprovante aqui! Assim que o pagamento for confirmado, vou verificar os cuidadores disponíveis para o seu atendimento e te aviso por aqui assim que encontrar.
 [NEXT]
-Agência: 0001
-Conta corrente: 7185853-6
-📌 PIX/e-mail: consultorialicia@gmail.com"
-→ action="send_media", mediaName="pix-cora", stage="aguardando_pagamento"
+📌 CHAVE PIX (CNPJ): 65.523.430/0001-33"
+→ action="send_media", mediaName="pix-sicob", stage="aguardando_pagamento"
 Se o cliente enviar comprovante ou disser que pagou: diga que o pagamento será confirmado pela equipe e que é necessário aguardar a aprovação do operador. NUNCA avance para pagamento_confirmado.
 
 REGRA [NEXT]: use [NEXT] SOMENTE nas instruções de PIX. Em todas as outras respostas deste fluxo, NUNCA use [NEXT].

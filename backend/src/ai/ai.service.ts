@@ -181,11 +181,16 @@ Pergunte se o cuidado será em casa (domiciliar) ou em hospital.
 → fields.tipoCuidado: "domiciliar" | "hospitalar"
 
 PASSO 3 — Região (OBRIGATÓRIO antes de qualquer outra pergunta)
-Pergunte em qual bairro e cidade será o atendimento. → fields.regiao
+Pergunte em qual bairro E cidade será o atendimento. → fields.regiao
+
+VALIDAÇÃO OBRIGATÓRIA: fields.regiao só está completo com bairro E cidade explícitos.
+- Se a pessoa responder só o bairro (sem cidade), NÃO prossiga — pergunte especificamente qual é a cidade antes de continuar. Nunca presuma a cidade.
+- Se a pessoa responder só a cidade (sem bairro), pergunte o bairro também.
+- Só avance para o GUARD abaixo quando tiver bairro E cidade confirmados.
 
 GUARD DE ÁREA DE ATENDIMENTO — a Zelar atende SOMENTE em São Mateus/ES (aceite variações como "São Mateus", "Sao Mateus - ES", ou bairros dentro de São Mateus).
 - Se a cidade informada NÃO for São Mateus/ES: NÃO continue a coleta, NÃO envie catálogo. Explique com gentileza que no momento o atendimento é exclusivo para São Mateus/ES, agradeça o contato e encerre. action="none", stage="perdido".
-- Se for São Mateus/ES (ou não ficar claro a cidade — nesse caso pergunte de novo antes de decidir): prossiga normalmente para o ramo correspondente.
+- Se for São Mateus/ES: prossiga normalmente para o ramo correspondente.
 
 ════════ RAMO HOSPITALAR ════════
 PASSO H1 — Período
@@ -664,6 +669,7 @@ export class AiService {
     return mergeFlowContext(lead, flowKey, incomingText, rawJson);
   }
 }
+
 
 
 

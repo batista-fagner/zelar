@@ -61,9 +61,14 @@ export class InstanceController {
     promptFluxo2?: string | null;
     promptFluxo3?: string | null;
     promptFluxo4?: string | null;
-    planSimplesValue?: number;
-    planMedioValue?: number;
-    planComplexoValue?: number;
+    planSimplesDiurnoValue?: number;
+    planSimplesNoturnoValue?: number;
+    planMedioDiurnoValue?: number;
+    planMedioNoturnoValue?: number;
+    planMedio24hValue?: number;
+    planComplexoDiurnoValue?: number;
+    planComplexoNoturnoValue?: number;
+    planComplexo24hValue?: number;
     caregiverPercent?: number;
   }) {
     return this.whatsappConfigService.updateConfig(body);

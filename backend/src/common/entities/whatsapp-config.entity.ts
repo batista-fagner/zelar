@@ -52,15 +52,31 @@ export class WhatsappConfig {
   @Column({ name: 'followup_message', nullable: true, type: 'text' })
   followupMessage: string | null;
 
-  // Fluxo 1 — valores dos planos em centavos (0 = não configurado, valor omitido nas mensagens)
-  @Column({ name: 'plan_simples_value', type: 'int', default: 0 })
-  planSimplesValue: number;
+  // Fluxo 1 — valores dos planos em centavos, por complexidade + turno
+  // (0 = não configurado, valor omitido nas mensagens). Simples não tem 24h.
+  @Column({ name: 'plan_simples_diurno_value', type: 'int', default: 0 })
+  planSimplesDiurnoValue: number;
 
-  @Column({ name: 'plan_medio_value', type: 'int', default: 0 })
-  planMedioValue: number;
+  @Column({ name: 'plan_simples_noturno_value', type: 'int', default: 0 })
+  planSimplesNoturnoValue: number;
 
-  @Column({ name: 'plan_complexo_value', type: 'int', default: 0 })
-  planComplexoValue: number;
+  @Column({ name: 'plan_medio_diurno_value', type: 'int', default: 0 })
+  planMedioDiurnoValue: number;
+
+  @Column({ name: 'plan_medio_noturno_value', type: 'int', default: 0 })
+  planMedioNoturnoValue: number;
+
+  @Column({ name: 'plan_medio_24h_value', type: 'int', default: 0 })
+  planMedio24hValue: number;
+
+  @Column({ name: 'plan_complexo_diurno_value', type: 'int', default: 0 })
+  planComplexoDiurnoValue: number;
+
+  @Column({ name: 'plan_complexo_noturno_value', type: 'int', default: 0 })
+  planComplexoNoturnoValue: number;
+
+  @Column({ name: 'plan_complexo_24h_value', type: 'int', default: 0 })
+  planComplexo24hValue: number;
 
   // Percentual do valor do plano repassado ao cuidador (padrão 55%)
   @Column({ name: 'caregiver_percent', type: 'int', default: 55 })

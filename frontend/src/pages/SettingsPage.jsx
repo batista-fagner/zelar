@@ -72,7 +72,12 @@ export default function SettingsPage() {
   const [newCaregiverPhone, setNewCaregiverPhone] = useState('')
   const [savingCaregiver, setSavingCaregiver] = useState(false)
   const [caregiverError, setCaregiverError] = useState(null)
-  const [planValues, setPlanValues] = useState({ simples: '', medio: '', complexo: '', percent: 55 })
+  const [planValues, setPlanValues] = useState({
+    simplesDiurno: '', simplesNoturno: '',
+    medioDiurno: '', medioNoturno: '', medio24h: '',
+    complexoDiurno: '', complexoNoturno: '', complexo24h: '',
+    percent: 55,
+  })
   const [savingPlans, setSavingPlans] = useState(false)
   const pollingRef = useRef(null)
 
@@ -106,9 +111,14 @@ export default function SettingsPage() {
       // Valores dos planos (Fluxo 1) — armazenados em centavos, exibidos em reais
       const centsToReais = (c) => (c > 0 ? (c / 100).toString() : '')
       setPlanValues({
-        simples: centsToReais(data?.planSimplesValue ?? 0),
-        medio: centsToReais(data?.planMedioValue ?? 0),
-        complexo: centsToReais(data?.planComplexoValue ?? 0),
+        simplesDiurno: centsToReais(data?.planSimplesDiurnoValue ?? 0),
+        simplesNoturno: centsToReais(data?.planSimplesNoturnoValue ?? 0),
+        medioDiurno: centsToReais(data?.planMedioDiurnoValue ?? 0),
+        medioNoturno: centsToReais(data?.planMedioNoturnoValue ?? 0),
+        medio24h: centsToReais(data?.planMedio24hValue ?? 0),
+        complexoDiurno: centsToReais(data?.planComplexoDiurnoValue ?? 0),
+        complexoNoturno: centsToReais(data?.planComplexoNoturnoValue ?? 0),
+        complexo24h: centsToReais(data?.planComplexo24hValue ?? 0),
         percent: data?.caregiverPercent ?? 55,
       })
       return data
@@ -171,9 +181,14 @@ export default function SettingsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          planSimplesValue: reaisToCents(planValues.simples),
-          planMedioValue: reaisToCents(planValues.medio),
-          planComplexoValue: reaisToCents(planValues.complexo),
+          planSimplesDiurnoValue: reaisToCents(planValues.simplesDiurno),
+          planSimplesNoturnoValue: reaisToCents(planValues.simplesNoturno),
+          planMedioDiurnoValue: reaisToCents(planValues.medioDiurno),
+          planMedioNoturnoValue: reaisToCents(planValues.medioNoturno),
+          planMedio24hValue: reaisToCents(planValues.medio24h),
+          planComplexoDiurnoValue: reaisToCents(planValues.complexoDiurno),
+          planComplexoNoturnoValue: reaisToCents(planValues.complexoNoturno),
+          planComplexo24hValue: reaisToCents(planValues.complexo24h),
           caregiverPercent: Math.max(0, Math.min(100, parseInt(planValues.percent, 10) || 55)),
         }),
       })
@@ -852,26 +867,31 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-gray-800 mb-1">Valores dos planos (Fluxo 1)</h2>
           <p className="text-xs text-gray-500 mb-4">Valor cobrado por atendimento conforme a complexidade. O cuidador recebe o percentual definido abaixo — enviado automaticamente na solicitação.</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            {[
-              { key: 'simples', label: 'Simples' },
-              { key: 'medio', label: 'Médio' },
-              { key: 'complexo', label: 'Complexo' },
-            ].map(plan => (
-              <div key={plan.key}>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">{plan.label} (R$)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={planValues[plan.key]}
-                  onChange={e => setPlanValues(prev => ({ ...prev, [plan.key]: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
+          {[
+            { label: 'Simples', keys: [['simplesDiurno', 'Diurno'], ['simplesNoturno', 'Noturno']] },
+            { label: 'Médio', keys: [['medioDiurno', 'Diurno'], ['medioNoturno', 'Noturno'], ['medio24h', '24h']] },
+            { label: 'Complexo', keys: [['complexoDiurno', 'Diurno'], ['complexoNoturno', 'Noturno'], ['complexo24h', '24h']] },
+          ].map(group => (
+            <div key={group.label} className="mb-4">
+              <p className="text-xs font-semibold text-gray-700 mb-2">{group.label}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {group.keys.map(([key, turnoLabel]) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">{turnoLabel} (R$)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={planValues[key]}
+                      onChange={e => setPlanValues(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
 
           <div className="mb-4 max-w-[200px]">
             <label className="block text-xs font-medium text-gray-600 mb-1.5">% repassado ao cuidador</label>

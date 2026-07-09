@@ -83,12 +83,15 @@ export class CareRequestsService implements OnApplicationBootstrap {
     return phones[0] ?? '5527997885752';
   }
 
-  /** Valor do plano (centavos) conforme a complexidade classificada. */
-  private async planValueFor(complexity: CareComplexity): Promise<{ planValue: number; caregiverValue: number }> {
+  /** Valor do plano (centavos) conforme complexidade + turno classificados. */
+  private async planValueFor(complexity: CareComplexity, turno: string): Promise<{ planValue: number; caregiverValue: number }> {
     const cfg = await this.configRepo.findOne({ where: {} });
-    const planValue = complexity === 'simples' ? (cfg?.planSimplesValue ?? 0)
-      : complexity === 'complexo' ? (cfg?.planComplexoValue ?? 0)
-      : (cfg?.planMedioValue ?? 0);
+    const table: Record<CareComplexity, Record<string, number>> = {
+      simples: { diurno: cfg?.planSimplesDiurnoValue ?? 0, noturno: cfg?.planSimplesNoturnoValue ?? 0 },
+      medio: { diurno: cfg?.planMedioDiurnoValue ?? 0, noturno: cfg?.planMedioNoturnoValue ?? 0, '24h': cfg?.planMedio24hValue ?? 0 },
+      complexo: { diurno: cfg?.planComplexoDiurnoValue ?? 0, noturno: cfg?.planComplexoNoturnoValue ?? 0, '24h': cfg?.planComplexo24hValue ?? 0 },
+    };
+    const planValue = table[complexity]?.[turno] ?? 0;
     const percent = cfg?.caregiverPercent ?? 55;
     return { planValue, caregiverValue: Math.round(planValue * percent / 100) };
   }
@@ -168,7 +171,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
       return null;
     }
 
-    const { planValue, caregiverValue } = await this.planValueFor(complexity);
+    const { planValue, caregiverValue } = await this.planValueFor(complexity, summary.turno);
 
     const request = await this.requestsRepo.save(this.requestsRepo.create({
       leadId: lead.id,

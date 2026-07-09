@@ -125,9 +125,14 @@ export class WhatsappConfigService {
     promptFluxo2?: string | null;
     promptFluxo3?: string | null;
     promptFluxo4?: string | null;
-    planSimplesValue?: number;
-    planMedioValue?: number;
-    planComplexoValue?: number;
+    planSimplesDiurnoValue?: number;
+    planSimplesNoturnoValue?: number;
+    planMedioDiurnoValue?: number;
+    planMedioNoturnoValue?: number;
+    planMedio24hValue?: number;
+    planComplexoDiurnoValue?: number;
+    planComplexoNoturnoValue?: number;
+    planComplexo24hValue?: number;
     caregiverPercent?: number;
   }): Promise<WhatsappConfig> {
     let record = await this.get();
@@ -138,11 +143,16 @@ export class WhatsappConfigService {
     if ('promptFluxo2' in fields) record.promptFluxo2 = fields.promptFluxo2 ?? null;
     if ('promptFluxo3' in fields) record.promptFluxo3 = fields.promptFluxo3 ?? null;
     if ('promptFluxo4' in fields) record.promptFluxo4 = fields.promptFluxo4 ?? null;
-    // Fluxo 1 — valores dos planos (centavos) e percentual do cuidador
+    // Fluxo 1 — valores dos planos por complexidade+turno (centavos) e percentual do cuidador
     const toNonNegativeInt = (v: any) => Math.max(0, Math.round(Number(v) || 0));
-    if ('planSimplesValue' in fields) record.planSimplesValue = toNonNegativeInt(fields.planSimplesValue);
-    if ('planMedioValue' in fields) record.planMedioValue = toNonNegativeInt(fields.planMedioValue);
-    if ('planComplexoValue' in fields) record.planComplexoValue = toNonNegativeInt(fields.planComplexoValue);
+    const planFields = [
+      'planSimplesDiurnoValue', 'planSimplesNoturnoValue',
+      'planMedioDiurnoValue', 'planMedioNoturnoValue', 'planMedio24hValue',
+      'planComplexoDiurnoValue', 'planComplexoNoturnoValue', 'planComplexo24hValue',
+    ] as const;
+    for (const key of planFields) {
+      if (key in fields) (record as any)[key] = toNonNegativeInt((fields as any)[key]);
+    }
     if ('caregiverPercent' in fields) {
       record.caregiverPercent = Math.min(100, toNonNegativeInt(fields.caregiverPercent)) || 55;
     }

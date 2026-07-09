@@ -483,7 +483,20 @@ function parseAiJson(raw: string): AiResponse {
   const sanitized = jsonStr.replace(/("(?:[^"\\]|\\.)*")/g, (m) =>
     m.replace(/\n/g, '\\n').replace(/\r/g, '\\r'),
   );
-  const parsed: AiResponse = JSON.parse(sanitized);
+  let parsed: AiResponse;
+  try {
+    parsed = JSON.parse(sanitized);
+  } catch (err) {
+    // Inclui o trecho extraído no erro — sem isso, o log só mostra "Unexpected token"
+    // sem contexto, impossibilitando diagnosticar qual parte do JSON veio malformada.
+    throw new Error(`Falha ao parsear JSON da IA: ${err.message} | trecho: ${sanitized.substring(0, 500)}`);
+  }
+  // Defesa contra extração de um objeto JSON errado (ex.: extractJsonObject pegou um
+  // sub-objeto aninhado em vez do objeto raiz) — sem "reply" válido, é melhor forçar
+  // fallback do que deixar o controller quebrar em aiResponse.reply.split(...).
+  if (typeof parsed.reply !== 'string' || !parsed.reply.trim()) {
+    throw new Error(`JSON da IA sem campo "reply" válido | trecho: ${sanitized.substring(0, 500)}`);
+  }
   parsed.success = true;
   parsed.rawJson = jsonStr;
   return parsed;

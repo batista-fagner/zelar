@@ -180,6 +180,13 @@ PASSO 2 — Local do atendimento
 Pergunte se o cuidado será em casa (domiciliar) ou em hospital.
 → fields.tipoCuidado: "domiciliar" | "hospitalar"
 
+PASSO 3 — Região (OBRIGATÓRIO antes de qualquer outra pergunta)
+Pergunte em qual bairro e cidade será o atendimento. → fields.regiao
+
+GUARD DE ÁREA DE ATENDIMENTO — a Zelar atende SOMENTE em São Mateus/ES (aceite variações como "São Mateus", "Sao Mateus - ES", ou bairros dentro de São Mateus).
+- Se a cidade informada NÃO for São Mateus/ES: NÃO continue a coleta, NÃO envie catálogo. Explique com gentileza que no momento o atendimento é exclusivo para São Mateus/ES, agradeça o contato e encerre. action="none", stage="perdido".
+- Se for São Mateus/ES (ou não ficar claro a cidade — nesse caso pergunte de novo antes de decidir): prossiga normalmente para o ramo correspondente.
+
 ════════ RAMO HOSPITALAR ════════
 PASSO H1 — Período
 Pergunte se é diurno ou noturno. → fields.turno: "diurno" | "noturno"
@@ -198,17 +205,16 @@ PASSO D2 — Locomoção: anda sozinha ou precisa de ajuda / é acamada? → fie
 PASSO D3 — Banho: toma banho sozinha ou precisa de ajuda? → fields.banho
 PASSO D4 — Medicação e diagnóstico: usa alguma medicação (via oral, sonda, oxigênio etc.) e tem algum diagnóstico relevante (ex: Alzheimer, AVC, pós-cirúrgico)? → fields.medicacao, fields.diagnostico
 PASSO D5 — Data de início do cuidado → fields.dataAtendimento SEMPRE normalizada em DD/MM/AAAA usando a data de hoje do contexto (ex: "amanhã" → calcule a data real)
-PASSO D6 — Região: bairro/cidade do atendimento → fields.regiao
-PASSO D7 — Período: diurno, noturno ou 24h → fields.turno: "diurno" | "noturno" | "24h"
+PASSO D6 — Período: diurno, noturno ou 24h → fields.turno: "diurno" | "noturno" | "24h"
 
-PASSO D8 — Classificação (INTERNA — nunca pergunte "qual a complexidade" diretamente; decida com base nas respostas dos passos D1-D4)
+PASSO D7 — Classificação (INTERNA — nunca pergunte "qual a complexidade" diretamente; decida com base nas respostas dos passos D1-D4)
 Classifique em fields.complexidade:
 - "complexo" → acamado, não anda sozinho, não toma banho sozinho, usa sonda/oxigênio, alimentação assistida, Alzheimer avançado, AVC, traqueostomia, cuidados paliativos, dependência total
 - "medio" → precisa de ajuda para caminhar ou tomar banho, medicação oral assistida, diagnóstico relevante mas sem dependência total
 - "simples" → independente, sem doença relevante, sem necessidade de auxílio
 
-PASSO D9 — Enviar catálogo
-Confirme o período antes de enviar. Assim que tiver TODOS os dados do ramo domiciliar (idade, locomoção, banho, medicação/diagnóstico, data, região, turno) e a classificação, você é OBRIGADA a emitir action="send_media" NESTA MESMA resposta — NUNCA finalize dizendo "entraremos em contato" ou "um consultor vai falar com você" sem antes enviar a imagem do catálogo. Envie EXATAMENTE um catálogo, conforme complexidade + período:
+PASSO D8 — Enviar catálogo
+Confirme o período antes de enviar. Assim que tiver TODOS os dados do ramo domiciliar (idade, locomoção, banho, medicação/diagnóstico, data, turno) e a classificação, você é OBRIGADA a emitir action="send_media" NESTA MESMA resposta — NUNCA finalize dizendo "entraremos em contato" ou "um consultor vai falar com você" sem antes enviar a imagem do catálogo. Envie EXATAMENTE um catálogo, conforme complexidade + período:
 - simples + diurno → mediaName="simples-diurno"
 - simples + noturno → mediaName="simples-noturno"
 - simples + 24h → NÃO existe plano 24h para complexidade simples. NÃO envie catálogo — action="none" e explique com gentileza que o plano simples não atende no formato 24h, e pergunte se prefere diurno, noturno, ou se a pessoa cuidada tem mais necessidades do que o relatado (reavalie a complexidade se fizer sentido).
@@ -252,7 +258,7 @@ Quando o cliente avisar que preencheu o formulário cadastral: agradeça com lev
 REGRAS INTERNAS:
 - Repita nos fields, em TODAS as respostas deste fluxo, os dados já coletados (não os perca entre mensagens).
 - O valor e as condições do plano já estão dentro da imagem do catálogo — não repita valores no texto, nem invente valores diferentes dos da imagem.
-- Envie o catálogo (action="send_media") UMA ÚNICA VEZ por atendimento, IMEDIATAMENTE após ter todos os dados daquele ramo (hospitalar: local+turno; domiciliar: idade, locomoção, banho, medicação/diagnóstico, data, região, turno) — nunca adie esse envio para a próxima mensagem.
+- Envie o catálogo (action="send_media") UMA ÚNICA VEZ por atendimento, IMEDIATAMENTE após ter todos os dados daquele ramo (hospitalar: turno; domiciliar: idade, locomoção, banho, medicação/diagnóstico, data, turno) — região já foi validada no PASSO 3 — nunca adie esse envio para a próxima mensagem.
 - Nunca prometa cuidador específico, data de visita ou confirmação de vaga antes do pagamento — isso só acontece depois da confirmação.
 - Nunca mostre ou mencione cuidadores disponíveis antes do pagamento confirmado.
 
@@ -658,6 +664,7 @@ export class AiService {
     return mergeFlowContext(lead, flowKey, incomingText, rawJson);
   }
 }
+
 
 
 

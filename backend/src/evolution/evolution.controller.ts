@@ -343,25 +343,27 @@ export class EvolutionController implements OnModuleInit {
 
     this.logger.log(`LIA respondeu [flow=${flowKeyForContext}, stage=${aiResponse.stage}]: ${aiResponse.reply}`);
 
-    // FLUXO 1 — guarda os dados do atendimento coletados até aqui (nome, tipo, região,
-    // data, turno, complexidade) em lead.aiContext.careSummaryPending. O broadcast pros
-    // cuidadores só dispara DEPOIS do pagamento confirmado (CareRequestsService.triggerBroadcastAfterPayment),
-    // então esses dados precisam sobreviver até lá — são atualizados a cada resposta da IA.
+    // FLUXO 1 — acumula os dados do atendimento (nome, tipo, região, data, turno,
+    // complexidade) em lead.aiContext.careSummaryPending. O broadcast pros cuidadores só
+    // dispara DEPOIS do pagamento confirmado (CareRequestsService.triggerBroadcastAfterPayment),
+    // então esses dados precisam sobreviver até lá. A IA nem sempre repete TODOS os campos
+    // em toda resposta (ex.: uma resposta sobre "data" pode não repetir "regiao") — por isso
+    // aqui fazemos MERGE progressivo (campo novo sobrescreve, campo ausente mantém o anterior),
+    // em vez de exigir todos os campos juntos numa única resposta.
     if (flowKeyForContext === 'fluxo_1' && aiResponse.fields) {
       const f = aiResponse.fields;
-      if (f.tipoCuidado && f.regiao && f.dataAtendimento && f.turno) {
-        const careSummaryPending = {
-          clientName: (f.name || lead.name || '').trim(),
-          tipoCuidado: f.tipoCuidado,
-          regiao: f.regiao,
-          dataAtendimento: f.dataAtendimento,
-          turno: f.turno,
-          complexidade: f.complexidade ?? null,
-        };
-        const currentContext = (lead.aiContext as any) ?? {};
-        lead.aiContext = { ...currentContext, careSummaryPending } as any;
-        await this.leadsService.update(lead.id, { aiContext: lead.aiContext } as any);
-      }
+      const currentContext = (lead.aiContext as any) ?? {};
+      const previous = currentContext.careSummaryPending ?? {};
+      const careSummaryPending = {
+        clientName: (f.name || lead.name || previous.clientName || '').trim(),
+        tipoCuidado: f.tipoCuidado ?? previous.tipoCuidado ?? null,
+        regiao: f.regiao ?? previous.regiao ?? null,
+        dataAtendimento: f.dataAtendimento ?? previous.dataAtendimento ?? null,
+        turno: f.turno ?? previous.turno ?? null,
+        complexidade: f.complexidade ?? previous.complexidade ?? null,
+      };
+      lead.aiContext = { ...currentContext, careSummaryPending } as any;
+      await this.leadsService.update(lead.id, { aiContext: lead.aiContext } as any);
     }
 
     // GUARD DETERMINÍSTICO — CONFIRMAÇÃO DE PAGAMENTO É EXCLUSIVA DO OPERADOR/WEBHOOK:

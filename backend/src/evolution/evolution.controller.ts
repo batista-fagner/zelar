@@ -396,6 +396,27 @@ export class EvolutionController implements OnModuleInit {
       return;
     }
 
+    // GUARD DETERMINÍSTICO — FLUXO 1: pagamento já confirmado, nunca cobrar de novo.
+    // Mesma classe de problema do guard acima: o Gemini pode cair em contexto antigo da
+    // conversa (instruções de PIX de antes do pagamento) e repetir a cobrança mesmo com
+    // o lead já em pagamento_confirmado/matriculado (ex: cliente pergunta algo ambíguo
+    // tipo "é pra fazer o que?" e a IA reage como se ainda estivesse esperando o PIX).
+    if (
+      flowKeyForContext === 'fluxo_1' &&
+      ['pagamento_confirmado', 'matriculado'].includes(lead.stage) &&
+      (
+        aiResponse.action === 'aguardar_confirmacao_pagamento' ||
+        aiResponse.action === 'send_payment_link' ||
+        (aiResponse.action === 'send_media' && (aiResponse.mediaName ?? '').startsWith('pix-')) ||
+        /\bpix\b|chave pix|comprovante|pague o|realizar o pagamento/i.test(aiResponse.reply ?? '')
+      )
+    ) {
+      this.logger.warn(`[GUARD] IA tentou cobrar pagamento novamente para ${phone} com lead já em stage=${lead.stage}. Resposta substituída.`);
+      aiResponse.action = 'none';
+      aiResponse.mediaName = undefined;
+      aiResponse.reply = 'O pagamento já foi confirmado 💙 Se ainda não preencheu a ficha cadastral, é só me avisar que reenvio o link; se já preencheu, é só aguardar que o cuidador (ou nossa equipe) segue com você por aqui.';
+    }
+
     // CAMADA DE SEGURANÇA: Se shouldIgnore=true, não responder e sair
     if (aiResponse.shouldIgnore === true) {
       this.logger.warn(`Lead ${phone} marcado para ignorar. Aplicando etiquetas e não respondendo mais.`);

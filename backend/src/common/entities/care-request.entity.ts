@@ -7,6 +7,15 @@ export type CareRequestStatus = 'aguardando_aceite' | 'aceito' | 'expirado' | 'c
 
 export type CareComplexity = 'simples' | 'medio' | 'complexo';
 
+export interface CareBroadcastEntry {
+  phone: string;
+  name: string;
+  status: 'enviado' | 'entregue' | 'falhou';
+  messageId?: string | null;
+  sentAt: string;
+  deliveredAt?: string | null;
+}
+
 export interface CareRequestSummary {
   clientName: string;
   tipoCuidado: string;
@@ -55,6 +64,10 @@ export class CareRequest {
   // avisar "vaga preenchida" aos demais quando alguém aceita.
   @Column({ name: 'notified_phones', type: 'jsonb', default: [] })
   notifiedPhones: string[];
+
+  // Log visual de entrega do broadcast — status por cuidador notificado (frontend exibe no Kanban).
+  @Column({ name: 'broadcast_log', type: 'jsonb', default: [] })
+  broadcastLog: CareBroadcastEntry[];
 
   @Column({ name: 'calendar_event_id', type: 'text', nullable: true })
   calendarEventId: string | null;

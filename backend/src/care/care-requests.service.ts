@@ -2,7 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, Inject, forwardRef } from '
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { CareRequest, CareRequestSummary, CareComplexity } from '../common/entities/care-request.entity';
+import { CareRequest, CareRequestSummary, CareComplexity, CareBroadcastEntry } from '../common/entities/care-request.entity';
 import { Caregiver } from '../common/entities/caregiver.entity';
 import { WhatsappConfig } from '../common/entities/whatsapp-config.entity';
 import { Lead } from '../common/entities/lead.entity';
@@ -53,7 +53,12 @@ function normalizeText(s: string): string {
 export class CareRequestsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CareRequestsService.name);
   private sender: ((phone: string, text: string) => Promise<void>) | null = null;
-  private buttonSender: ((phone: string, text: string, choices: string[], footerText?: string) => Promise<void>) | null = null;
+  private buttonSender: ((phone: string, text: string, choices: string[], footerText?: string) => Promise<string | null>) | null = null;
+  private statusChecker: ((messageid: string) => Promise<string | null>) | null = null;
+
+  /** Status brutos da uazapi que consideramos "entregue" no log visual. */
+  private static readonly DELIVERED_STATUSES = new Set(['DELIVERY_ACK', 'READ', 'PLAYED']);
+  private static readonly FAILED_STATUSES = new Set(['ERROR', 'FAILED']);
 
   constructor(
     @InjectRepository(CareRequest)
@@ -75,8 +80,13 @@ export class CareRequestsService implements OnApplicationBootstrap {
   }
 
   /** Injetado pelo EvolutionController — envia mensagem com botões (uazapi /send/menu). */
-  setButtonSender(fn: (phone: string, text: string, choices: string[], footerText?: string) => Promise<void>) {
+  setButtonSender(fn: (phone: string, text: string, choices: string[], footerText?: string) => Promise<string | null>) {
     this.buttonSender = fn;
+  }
+
+  /** Injetado pelo EvolutionController — reconsulta status de entrega de uma mensagem. */
+  setStatusChecker(fn: (messageid: string) => Promise<string | null>) {
+    this.statusChecker = fn;
   }
 
   onApplicationBootstrap() {
@@ -257,21 +267,61 @@ export class CareRequestsService implements OnApplicationBootstrap {
       `O primeiro que aceitar fica com o atendimento.`;
 
     // Broadcast sequencial com delay entre envios — botões "Aceito"/"Recusar" (fallback: texto livre)
+    const broadcastLog: CareBroadcastEntry[] = [];
     for (let i = 0; i < caregivers.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, BROADCAST_DELAY_MS));
+      const sentAt = new Date().toISOString();
+      let messageId: string | null = null;
       try {
         if (this.buttonSender) {
-          await this.buttonSender(caregivers[i].phone, msg, ['✅ Aceito|aceito', '❌ Recusar|recusar']);
+          messageId = await this.buttonSender(caregivers[i].phone, msg, ['✅ Aceito|aceito', '❌ Recusar|recusar']);
         } else {
           await this.send(caregivers[i].phone, `${msg}\n\nPara aceitar, responda *ACEITO*.`);
         }
         this.logger.log(`[CARE] Broadcast ${i + 1}/${caregivers.length} → ${caregivers[i].name} (${caregivers[i].phone})`);
+        broadcastLog.push({ phone: caregivers[i].phone, name: caregivers[i].name, status: 'enviado', messageId, sentAt });
       } catch (err) {
         this.logger.error(`[CARE] Falha no broadcast para ${caregivers[i].phone}: ${err.message}`);
+        broadcastLog.push({ phone: caregivers[i].phone, name: caregivers[i].name, status: 'falhou', messageId: null, sentAt });
       }
     }
 
+    request.broadcastLog = broadcastLog;
+    await this.requestsRepo.save(request);
+    this.scheduleDeliveryChecks(request.id, broadcastLog);
+
     return request;
+  }
+
+  /** 20s após o broadcast, reconsulta o status de cada mensagem e atualiza o log visual. */
+  private scheduleDeliveryChecks(requestId: string, entries: CareBroadcastEntry[]) {
+    if (!this.statusChecker) return;
+    for (const entry of entries) {
+      if (!entry.messageId) continue;
+      setTimeout(async () => {
+        try {
+          const rawStatus = await this.statusChecker!(entry.messageId!);
+          if (!rawStatus) return;
+          const status: CareBroadcastEntry['status'] = CareRequestsService.FAILED_STATUSES.has(rawStatus)
+            ? 'falhou'
+            : CareRequestsService.DELIVERED_STATUSES.has(rawStatus) ? 'entregue' : 'enviado';
+
+          const fresh = await this.requestsRepo.findOne({ where: { id: requestId } });
+          if (!fresh) return;
+          const updatedLog = (fresh.broadcastLog ?? []).map(e =>
+            e.messageId === entry.messageId ? { ...e, status, deliveredAt: status === 'entregue' ? new Date().toISOString() : e.deliveredAt } : e,
+          );
+          await this.requestsRepo.update(requestId, { broadcastLog: updatedLog });
+        } catch (err) {
+          this.logger.warn(`[CARE] Falha ao atualizar log de entrega (${entry.phone}): ${err.message}`);
+        }
+      }, 20000);
+    }
+  }
+
+  /** Última solicitação (qualquer status) criada para o lead — usada pro log visual no Kanban. */
+  async getLatestForLead(leadId: string): Promise<CareRequest | null> {
+    return this.requestsRepo.findOne({ where: { leadId }, order: { createdAt: 'DESC' } });
   }
 
   /**

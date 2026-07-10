@@ -75,8 +75,8 @@ export class UazapiProvider implements IWhatsAppProvider {
     }, 20000);
   }
 
-  /** Envia mensagem com botões de resposta rápida (uazapi /send/menu, type="button"). */
-  async sendButtonMessage(phone: string, text: string, choices: string[], footerText?: string, token?: string): Promise<void> {
+  /** Envia mensagem com botões de resposta rápida (uazapi /send/menu, type="button"). Retorna o messageid pra rastreio de entrega. */
+  async sendButtonMessage(phone: string, text: string, choices: string[], footerText?: string, token?: string): Promise<string | null> {
     const useToken = await this.resolveToken(token);
     try {
       const res = await firstValueFrom(
@@ -86,10 +86,31 @@ export class UazapiProvider implements IWhatsAppProvider {
           { headers: { token: useToken } },
         ),
       );
-      const messageid = (res.data as any)?.messageid;
+      const messageid = (res.data as any)?.messageid ?? null;
       this.logger.log(`[SEND-BUTTON] → ${phone} | messageid=${messageid}`);
+      return messageid;
     } catch (err) {
       this.logger.error(`Erro ao enviar menu de botões para ${phone}: ${err.message}`);
+      return null;
+    }
+  }
+
+  /** Reconsulta o status de uma mensagem já enviada (usado pro log de entrega do broadcast). */
+  async checkMessageStatus(messageid: string, token?: string): Promise<string | null> {
+    const useToken = await this.resolveToken(token);
+    try {
+      const res = await firstValueFrom(
+        this.http.post(
+          `${this.baseUrl}/message/find`,
+          { id: messageid },
+          { headers: { token: useToken } },
+        ),
+      );
+      const found = (res.data as any)?.messages?.[0];
+      return found?.status ?? null;
+    } catch (err) {
+      this.logger.warn(`Falha ao checar status de ${messageid}: ${err.message}`);
+      return null;
     }
   }
 

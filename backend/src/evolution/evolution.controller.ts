@@ -54,6 +54,9 @@ export class EvolutionController implements OnModuleInit {
     this.careRequestsService.setButtonSender((phone, text, choices, footerText) =>
       this.evolutionService.sendButtonMessage(phone, text, choices, footerText),
     );
+    this.careRequestsService.setStatusChecker((messageid) =>
+      this.evolutionService.checkMessageStatus(messageid),
+    );
   }
 
   @Post('uazapi')

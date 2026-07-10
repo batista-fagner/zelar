@@ -7,6 +7,7 @@ import { EvolutionService } from '../evolution/evolution.service';
 import { WhatsappConfigService } from '../evolution/whatsapp-config.service';
 import { AiService } from '../ai/ai.service';
 import { CareRequestsService } from '../care/care-requests.service';
+import { CaregiversService } from '../care/caregivers.service';
 
 @Controller('leads')
 export class LeadsController {
@@ -19,6 +20,8 @@ export class LeadsController {
     private readonly aiService: AiService,
     @Inject(forwardRef(() => CareRequestsService))
     private readonly careRequestsService: CareRequestsService,
+    @Inject(forwardRef(() => CaregiversService))
+    private readonly caregiversService: CaregiversService,
   ) {}
 
   @Get()
@@ -125,6 +128,29 @@ export class LeadsController {
     const request = await this.careRequestsService.cancelForLead(id);
     if (!request) return { ok: false, error: 'Nenhum atendimento aceito encontrado para este lead' };
     return { ok: true };
+  }
+
+  /** Log visual de entrega do broadcast pros cuidadores (quem recebeu, status, quem aceitou). */
+  @Get(':id/care-broadcast')
+  async getCareBroadcast(@Param('id') id: string) {
+    const request = await this.careRequestsService.getLatestForLead(id);
+    if (!request) return null;
+
+    let assignedCaregiverName: string | null = null;
+    if (request.assignedCaregiverId) {
+      const caregivers = await this.caregiversService.findAll();
+      assignedCaregiverName = caregivers.find(c => c.id === request.assignedCaregiverId)?.name ?? null;
+    }
+
+    return {
+      status: request.status,
+      complexity: request.complexity,
+      notifiedAt: request.notifiedAt,
+      acceptedAt: request.acceptedAt,
+      broadcastLog: request.broadcastLog ?? [],
+      assignedCaregiverId: request.assignedCaregiverId,
+      assignedCaregiverName,
+    };
   }
 
   @Patch(':id/observations')

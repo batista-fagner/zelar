@@ -23,8 +23,13 @@ export class EvolutionService {
     return this.provider.transcribeAudio(mediaId);
   }
 
-  sendButtonMessage(phone: string, text: string, choices: string[], footerText?: string): Promise<void> {
-    if (!this.provider.sendButtonMessage) return Promise.resolve();
+  sendButtonMessage(phone: string, text: string, choices: string[], footerText?: string): Promise<string | null> {
+    if (!this.provider.sendButtonMessage) return Promise.resolve(null);
     return this.provider.sendButtonMessage(phone, text, choices, footerText);
+  }
+
+  checkMessageStatus(messageid: string): Promise<string | null> {
+    if (!this.provider.checkMessageStatus) return Promise.resolve(null);
+    return this.provider.checkMessageStatus(messageid);
   }
 }

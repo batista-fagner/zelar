@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, Edit2, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Trash2, Edit2, Calendar, Clock, CheckCircle, XCircle, Send, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { updateName } from '../services/api'
 
@@ -53,6 +53,12 @@ const scoreColor = (score) => {
   return 'text-slate-400'
 }
 
+const broadcastStatusBadge = {
+  enviado:  { label: 'Enviado',  className: 'bg-gray-100 text-gray-600' },
+  entregue: { label: 'Entregue', className: 'bg-emerald-100 text-emerald-700' },
+  falhou:   { label: 'Falhou',   className: 'bg-red-100 text-red-600' },
+}
+
 export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(lead.name || '')
@@ -60,8 +66,26 @@ export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
   const [showConfirmPaymentModal, setShowConfirmPaymentModal] = useState(false)
   const [cancelingCare, setCancelingCare] = useState(false)
   const [showCancelCareModal, setShowCancelCareModal] = useState(false)
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
+  const [loadingBroadcast, setLoadingBroadcast] = useState(false)
+  const [broadcastData, setBroadcastData] = useState(null)
 
   const hasCaregiverAssigned = (lead.labels ?? []).includes('cuidador_designado')
+
+  async function handleOpenBroadcast() {
+    setShowBroadcastModal(true)
+    setLoadingBroadcast(true)
+    try {
+      const res = await fetch(`${API_URL}/leads/${lead.id}/care-broadcast`)
+      const data = await res.json()
+      setBroadcastData(data)
+    } catch (err) {
+      console.error('Erro ao buscar log de notificações:', err)
+      setBroadcastData(null)
+    } finally {
+      setLoadingBroadcast(false)
+    }
+  }
 
   async function handleCancelCare() {
     setCancelingCare(true)
@@ -243,6 +267,20 @@ export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
         </div>
       )}
 
+      {/* Botão ver notificações enviadas aos cuidadores */}
+      {lead.activeFlow === 'fluxo_1' && (
+        <div className="mt-2 pt-2 border-t border-blue-100">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); handleOpenBroadcast() }}
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 transition-colors"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Ver notificações aos cuidadores
+          </button>
+        </div>
+      )}
+
       {/* Botão cancelar atendimento (cuidador já designado) */}
       {hasCaregiverAssigned && (
         <div className="mt-2 pt-2 border-t border-rose-100">
@@ -324,6 +362,73 @@ export default function LeadCard({ lead, onClick, onDelete, onLeadUpdate }) {
                 Confirmar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal do log de notificações aos cuidadores */}
+      {showBroadcastModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); setShowBroadcastModal(false) }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl p-5 w-80 max-h-[80vh] overflow-y-auto space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                <Send className="w-4 h-4 text-blue-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-800">Notificações aos cuidadores</h3>
+            </div>
+
+            {loadingBroadcast ? (
+              <div className="flex items-center justify-center py-6 text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : !broadcastData ? (
+              <p className="text-xs text-gray-500">Nenhuma solicitação foi enviada aos cuidadores ainda.</p>
+            ) : (
+              <>
+                <p className="text-[11px] text-gray-500">
+                  {broadcastData.status === 'aceito' && broadcastData.assignedCaregiverName
+                    ? <>✅ Aceito por <span className="font-semibold text-gray-700">{broadcastData.assignedCaregiverName}</span></>
+                    : broadcastData.status === 'expirado' ? '⚠️ Ninguém aceitou (expirado)'
+                    : broadcastData.status === 'cancelado' ? '🚫 Atendimento cancelado'
+                    : '⏳ Aguardando aceite'}
+                </p>
+                <div className="space-y-1.5">
+                  {(broadcastData.broadcastLog ?? []).map((entry) => {
+                    const isAssigned = broadcastData.status === 'aceito' && entry.name === broadcastData.assignedCaregiverName
+                    return (
+                      <div key={entry.phone} className={`flex items-center justify-between gap-2 text-xs rounded-lg px-2.5 py-1.5 ${isAssigned ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50'}`}>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-700 truncate">
+                            {isAssigned ? '✅ ' : ''}{entry.name}
+                          </p>
+                          <p className="text-[10px] text-gray-400">{entry.phone}</p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${broadcastStatusBadge[entry.status]?.className ?? 'bg-gray-100 text-gray-500'}`}>
+                          {broadcastStatusBadge[entry.status]?.label ?? entry.status}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {(broadcastData.broadcastLog ?? []).length === 0 && (
+                    <p className="text-xs text-gray-400">Sem cuidadores notificados.</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <button
+              onClick={() => setShowBroadcastModal(false)}
+              className="w-full py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}

@@ -35,6 +35,17 @@ function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/** Resumo do paciente (ramo domiciliar) pro cuidador saber o que vai encontrar antes de aceitar. */
+function buildPatientSummaryLine(s: CareRequestSummary): string {
+  const parts: string[] = [];
+  if (s.idade) parts.push(`Idade: ${s.idade}`);
+  if (s.locomocao) parts.push(`Locomoção: ${s.locomocao}`);
+  if (s.banho) parts.push(`Banho: ${s.banho}`);
+  if (s.medicacao) parts.push(`Medicação: ${s.medicacao}`);
+  if (s.diagnostico) parts.push(`Diagnóstico: ${s.diagnostico}`);
+  return parts.length > 0 ? `\n🧑‍⚕️ Resumo do paciente:\n${parts.map(p => `• ${p}`).join('\n')}\n` : '';
+}
+
 function normalizeText(s: string): string {
   return (s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
@@ -194,6 +205,11 @@ export class CareRequestsService implements OnApplicationBootstrap {
       regiao: pending.regiao,
       dataAtendimento: pending.dataAtendimento,
       turno: pending.turno,
+      idade: pending.idade ?? null,
+      locomocao: pending.locomocao ?? null,
+      banho: pending.banho ?? null,
+      medicacao: pending.medicacao ?? null,
+      diagnostico: pending.diagnostico ?? null,
     };
 
     const request = await this.createAndBroadcast(lead, summary, complexity);
@@ -231,13 +247,14 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
     const complexityLabel = complexity.charAt(0).toUpperCase() + complexity.slice(1);
     const valueLine = caregiverValue > 0 ? `\n💰 Valor a receber: ${formatBRL(caregiverValue)}` : '';
+    const patientSummary = buildPatientSummaryLine(summary);
     const msg = `🩺 *Nova solicitação de atendimento — Zelar*\n\n` +
       `👤 Cliente: ${summary.clientName}\n` +
       `🩹 Tipo de cuidado: ${summary.tipoCuidado}\n` +
       `📍 Região: ${summary.regiao}\n` +
       `🗓 Data: ${summary.dataAtendimento}\n` +
       `⏰ Turno: ${TURNO_LABEL[summary.turno] ?? summary.turno}\n` +
-      `📊 Complexidade: ${complexityLabel}${valueLine}\n\n` +
+      `📊 Complexidade: ${complexityLabel}${valueLine}\n${patientSummary}\n` +
       `O primeiro que aceitar fica com o atendimento.`;
 
     // Broadcast sequencial com delay entre envios — botões "Aceito"/"Recusar" (fallback: texto livre)
@@ -315,7 +332,8 @@ export class CareRequestsService implements OnApplicationBootstrap {
     // 1. Confirma ao cuidador com o contato do cliente
     const caregiverMsg = `Ótimo, o atendimento é seu! 🎉\n\n` +
       `👤 Cliente: ${s.clientName}\n📱 WhatsApp: ${request.leadPhone}\n` +
-      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}\n\n` +
+      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}\n` +
+      `${buildPatientSummaryLine(s)}\n` +
       `Entre em contato com o cliente para combinar os detalhes.`;
     await this.send(caregiverPhone, caregiverMsg).catch(err =>
       this.logger.error(`[CARE] Falha ao confirmar ao cuidador: ${err.message}`));

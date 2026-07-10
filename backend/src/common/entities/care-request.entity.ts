@@ -13,6 +13,12 @@ export interface CareRequestSummary {
   regiao: string;
   dataAtendimento: string; // DD/MM/AAAA (validado no backend antes de criar)
   turno: 'diurno' | 'noturno' | '24h';
+  // Só preenchidos no ramo domiciliar — dão ao cuidador um resumo do paciente antes de aceitar.
+  idade?: string | null;
+  locomocao?: string | null;
+  banho?: string | null;
+  medicacao?: string | null;
+  diagnostico?: string | null;
 }
 
 @Entity('care_requests')

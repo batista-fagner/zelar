@@ -365,6 +365,11 @@ export class EvolutionController implements OnModuleInit {
         dataAtendimento: f.dataAtendimento ?? previous.dataAtendimento ?? null,
         turno: f.turno ?? previous.turno ?? null,
         complexidade: f.complexidade ?? previous.complexidade ?? null,
+        idade: f.idade ?? previous.idade ?? null,
+        locomocao: f.locomocao ?? previous.locomocao ?? null,
+        banho: f.banho ?? previous.banho ?? null,
+        medicacao: f.medicacao ?? previous.medicacao ?? null,
+        diagnostico: f.diagnostico ?? previous.diagnostico ?? null,
       };
       lead.aiContext = { ...currentContext, careSummaryPending } as any;
       await this.leadsService.update(lead.id, { aiContext: lead.aiContext } as any);

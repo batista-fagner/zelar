@@ -28,6 +28,11 @@ export interface AiResponse {
     dataAtendimento?: string | null; // DD/MM/AAAA (backend valida)
     turno?: string | null;           // manha|tarde|noite|integral
     complexidade?: string | null;    // simples|medio|complexo
+    idade?: string | null;
+    locomocao?: string | null;
+    banho?: string | null;
+    medicacao?: string | null;
+    diagnostico?: string | null;
   };
 }
 
@@ -267,7 +272,7 @@ Quando o cliente avisar que preencheu o formulário cadastral: agradeça com lev
 IMPORTANTE — se o "Stage atual" no contexto já é "pagamento_confirmado" ou "matriculado": o pagamento JÁ FOI RECEBIDO. NUNCA peça pagamento de novo (nem PIX nem cartão), NUNCA reenvie instruções de PIX, mesmo que a pergunta do cliente seja ambígua (ex: "é pra fazer o que?", "como assim?"). Nesse caso, explique com gentileza que o pagamento já foi confirmado e que ela deve preencher o formulário cadastral (se ainda não preencheu) ou aguardar contato do cuidador. action="none".
 
 REGRAS INTERNAS:
-- Repita nos fields, em TODAS as respostas deste fluxo, os dados já coletados (não os perca entre mensagens).
+- Repita nos fields, em TODAS as respostas deste fluxo, os dados já coletados (não os perca entre mensagens), incluindo fields.idade, fields.locomocao, fields.banho, fields.medicacao, fields.diagnostico quando já coletados (ramo domiciliar) — o cuidador designado vai receber esse resumo antes de aceitar o atendimento.
 - O valor e as condições do plano já estão dentro da imagem do catálogo — não repita valores no texto, nem invente valores diferentes dos da imagem.
 - Envie o catálogo (action="send_media") UMA ÚNICA VEZ por atendimento, IMEDIATAMENTE após ter todos os dados daquele ramo (hospitalar: turno; domiciliar: idade, locomoção, banho, medicação/diagnóstico, data, turno) — região já foi validada no PASSO 3 — nunca adie esse envio para a próxima mensagem.
 - Nunca prometa cuidador específico, data de visita ou confirmação de vaga antes do pagamento — isso só acontece depois da confirmação.

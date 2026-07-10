@@ -51,6 +51,9 @@ export class EvolutionController implements OnModuleInit {
     this.careRequestsService.setSender((phone, message) =>
       this.evolutionService.sendTextMessage(phone, message),
     );
+    this.careRequestsService.setButtonSender((phone, text, choices, footerText) =>
+      this.evolutionService.sendButtonMessage(phone, text, choices, footerText),
+    );
   }
 
   @Post('uazapi')
@@ -75,7 +78,8 @@ export class EvolutionController implements OnModuleInit {
 
     const rawPhone: string = body.chat?.phone ?? '';
     const phone = rawPhone.replace(/\D/g, '');
-    const text: string = message.text;
+    // Resposta de botão (uazapi /send/menu): buttonOrListid traz o id escolhido ("aceito"/"recusar")
+    const text: string = message.buttonOrListid || message.text;
     const isAudio = message.type === 'media' && ['audio', 'ptt', 'myaudio'].includes(message.mediaType);
 
     // Ignora mensagens de números de operadores (evita IA responder a testes internos)

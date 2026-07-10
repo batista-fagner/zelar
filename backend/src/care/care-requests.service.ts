@@ -43,6 +43,7 @@ function normalizeText(s: string): string {
 export class CareRequestsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CareRequestsService.name);
   private sender: ((phone: string, text: string) => Promise<void>) | null = null;
+  private buttonSender: ((phone: string, text: string, choices: string[], footerText?: string) => Promise<void>) | null = null;
 
   constructor(
     @InjectRepository(CareRequest)
@@ -61,6 +62,11 @@ export class CareRequestsService implements OnApplicationBootstrap {
   /** Injetado pelo EvolutionController no boot (evita dependência circular com EvolutionModule). */
   setSender(fn: (phone: string, text: string) => Promise<void>) {
     this.sender = fn;
+  }
+
+  /** Injetado pelo EvolutionController — envia mensagem com botões (uazapi /send/menu). */
+  setButtonSender(fn: (phone: string, text: string, choices: string[], footerText?: string) => Promise<void>) {
+    this.buttonSender = fn;
   }
 
   onApplicationBootstrap() {
@@ -232,13 +238,17 @@ export class CareRequestsService implements OnApplicationBootstrap {
       `🗓 Data: ${summary.dataAtendimento}\n` +
       `⏰ Turno: ${TURNO_LABEL[summary.turno] ?? summary.turno}\n` +
       `📊 Complexidade: ${complexityLabel}${valueLine}\n\n` +
-      `Para aceitar, responda *ACEITO*. O primeiro que aceitar fica com o atendimento.`;
+      `O primeiro que aceitar fica com o atendimento.`;
 
-    // Broadcast sequencial com delay entre envios
+    // Broadcast sequencial com delay entre envios — botões "Aceito"/"Recusar" (fallback: texto livre)
     for (let i = 0; i < caregivers.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, BROADCAST_DELAY_MS));
       try {
-        await this.send(caregivers[i].phone, msg);
+        if (this.buttonSender) {
+          await this.buttonSender(caregivers[i].phone, msg, ['✅ Aceito|aceito', '❌ Recusar|recusar']);
+        } else {
+          await this.send(caregivers[i].phone, `${msg}\n\nPara aceitar, responda *ACEITO*.`);
+        }
         this.logger.log(`[CARE] Broadcast ${i + 1}/${caregivers.length} → ${caregivers[i].name} (${caregivers[i].phone})`);
       } catch (err) {
         this.logger.error(`[CARE] Falha no broadcast para ${caregivers[i].phone}: ${err.message}`);

@@ -22,4 +22,9 @@ export class EvolutionService {
   transcribeAudio(mediaId: string): Promise<string> {
     return this.provider.transcribeAudio(mediaId);
   }
+
+  sendButtonMessage(phone: string, text: string, choices: string[], footerText?: string): Promise<void> {
+    if (!this.provider.sendButtonMessage) return Promise.resolve();
+    return this.provider.sendButtonMessage(phone, text, choices, footerText);
+  }
 }

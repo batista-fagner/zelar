@@ -75,6 +75,24 @@ export class UazapiProvider implements IWhatsAppProvider {
     }, 20000);
   }
 
+  /** Envia mensagem com botões de resposta rápida (uazapi /send/menu, type="button"). */
+  async sendButtonMessage(phone: string, text: string, choices: string[], footerText?: string, token?: string): Promise<void> {
+    const useToken = await this.resolveToken(token);
+    try {
+      const res = await firstValueFrom(
+        this.http.post(
+          `${this.baseUrl}/send/menu`,
+          { number: phone, type: 'button', text, choices, footerText },
+          { headers: { token: useToken } },
+        ),
+      );
+      const messageid = (res.data as any)?.messageid;
+      this.logger.log(`[SEND-BUTTON] → ${phone} | messageid=${messageid}`);
+    } catch (err) {
+      this.logger.error(`Erro ao enviar menu de botões para ${phone}: ${err.message}`);
+    }
+  }
+
   async sendAudioMessage(phone: string, audioBuffer: Buffer, token?: string): Promise<void> {
     const useToken = await this.resolveToken(token);
     try {

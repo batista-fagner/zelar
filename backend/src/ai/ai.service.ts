@@ -238,10 +238,10 @@ action="send_media", stage="em_atendimento". Depois de enviar, pergunte se esse 
 ════════ PAGAMENTO (após confirmar interesse no catálogo, hospitalar ou domiciliar) ════════
 
 PASSO PAG-1 — Forma de pagamento
-"Ótimo 😊 Qual forma de pagamento você prefere?
+"Ótimo 😊 A data combinada será confirmada com o cuidador logo após o pagamento — se não houver disponibilidade exata, nossa equipe entra em contato pra ajustar. Qual forma de pagamento você prefere?
 💳 Crédito ou Débito
 📲 Pix"
-Se o cliente já disse o método, pule direto para o PASSO PAG-2.
+Se o cliente já disse o método, pule direto para o PASSO PAG-2 (mas ainda assim inclua o aviso sobre a confirmação da data antes das instruções de pagamento).
 
 PASSO PAG-2 — Instruções de pagamento
 

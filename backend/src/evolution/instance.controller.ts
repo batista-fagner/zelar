@@ -69,6 +69,8 @@ export class InstanceController {
     planComplexoDiurnoValue?: number;
     planComplexoNoturnoValue?: number;
     planComplexo24hValue?: number;
+    planHospitalarDiurnoValue?: number;
+    planHospitalarNoturnoValue?: number;
     caregiverPercent?: number;
   }) {
     return this.whatsappConfigService.updateConfig(body);

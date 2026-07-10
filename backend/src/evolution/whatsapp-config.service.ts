@@ -133,6 +133,8 @@ export class WhatsappConfigService {
     planComplexoDiurnoValue?: number;
     planComplexoNoturnoValue?: number;
     planComplexo24hValue?: number;
+    planHospitalarDiurnoValue?: number;
+    planHospitalarNoturnoValue?: number;
     caregiverPercent?: number;
   }): Promise<WhatsappConfig> {
     let record = await this.get();
@@ -149,6 +151,7 @@ export class WhatsappConfigService {
       'planSimplesDiurnoValue', 'planSimplesNoturnoValue',
       'planMedioDiurnoValue', 'planMedioNoturnoValue', 'planMedio24hValue',
       'planComplexoDiurnoValue', 'planComplexoNoturnoValue', 'planComplexo24hValue',
+      'planHospitalarDiurnoValue', 'planHospitalarNoturnoValue',
     ] as const;
     for (const key of planFields) {
       if (key in fields) (record as any)[key] = toNonNegativeInt((fields as any)[key]);

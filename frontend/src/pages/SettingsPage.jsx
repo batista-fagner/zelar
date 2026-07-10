@@ -76,6 +76,7 @@ export default function SettingsPage() {
     simplesDiurno: '', simplesNoturno: '',
     medioDiurno: '', medioNoturno: '', medio24h: '',
     complexoDiurno: '', complexoNoturno: '', complexo24h: '',
+    hospitalarDiurno: '', hospitalarNoturno: '',
     percent: 55,
   })
   const [savingPlans, setSavingPlans] = useState(false)
@@ -119,6 +120,8 @@ export default function SettingsPage() {
         complexoDiurno: centsToReais(data?.planComplexoDiurnoValue ?? 0),
         complexoNoturno: centsToReais(data?.planComplexoNoturnoValue ?? 0),
         complexo24h: centsToReais(data?.planComplexo24hValue ?? 0),
+        hospitalarDiurno: centsToReais(data?.planHospitalarDiurnoValue ?? 0),
+        hospitalarNoturno: centsToReais(data?.planHospitalarNoturnoValue ?? 0),
         percent: data?.caregiverPercent ?? 55,
       })
       return data
@@ -189,6 +192,8 @@ export default function SettingsPage() {
           planComplexoDiurnoValue: reaisToCents(planValues.complexoDiurno),
           planComplexoNoturnoValue: reaisToCents(planValues.complexoNoturno),
           planComplexo24hValue: reaisToCents(planValues.complexo24h),
+          planHospitalarDiurnoValue: reaisToCents(planValues.hospitalarDiurno),
+          planHospitalarNoturnoValue: reaisToCents(planValues.hospitalarNoturno),
           caregiverPercent: Math.max(0, Math.min(100, parseInt(planValues.percent, 10) || 55)),
         }),
       })
@@ -871,6 +876,7 @@ export default function SettingsPage() {
             { label: 'Simples', keys: [['simplesDiurno', 'Diurno'], ['simplesNoturno', 'Noturno']] },
             { label: 'Médio', keys: [['medioDiurno', 'Diurno'], ['medioNoturno', 'Noturno'], ['medio24h', '24h']] },
             { label: 'Complexo', keys: [['complexoDiurno', 'Diurno'], ['complexoNoturno', 'Noturno'], ['complexo24h', '24h']] },
+            { label: 'Hospitalar', keys: [['hospitalarDiurno', 'Diurno'], ['hospitalarNoturno', 'Noturno']] },
           ].map(group => (
             <div key={group.label} className="mb-4">
               <p className="text-xs font-semibold text-gray-700 mb-2">{group.label}</p>

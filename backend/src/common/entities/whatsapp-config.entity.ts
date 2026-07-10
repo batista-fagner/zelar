@@ -78,6 +78,13 @@ export class WhatsappConfig {
   @Column({ name: 'plan_complexo_24h_value', type: 'int', default: 0 })
   planComplexo24hValue: number;
 
+  // Fluxo 1 — ramo hospitalar (não tem complexidade nem 24h, só diurno/noturno)
+  @Column({ name: 'plan_hospitalar_diurno_value', type: 'int', default: 0 })
+  planHospitalarDiurnoValue: number;
+
+  @Column({ name: 'plan_hospitalar_noturno_value', type: 'int', default: 0 })
+  planHospitalarNoturnoValue: number;
+
   // Percentual do valor do plano repassado ao cuidador (padrão 55%)
   @Column({ name: 'caregiver_percent', type: 'int', default: 55 })
   caregiverPercent: number;

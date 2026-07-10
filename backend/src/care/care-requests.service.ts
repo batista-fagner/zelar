@@ -17,8 +17,7 @@ const ACCEPT_TIMEOUT_MINUTES = 15;
 /** Delay entre envios do broadcast (sequencial) — evita padrão de disparo em massa. */
 const BROADCAST_DELAY_MS = 2000;
 
-// TODO: substituir pelo link real do formulário cadastral do Fluxo 1 (Google Forms).
-const CADASTRO_FORM_URL = 'https://forms.gle/SUBSTITUIR-LINK-FLUXO-1';
+const CADASTRO_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc0qktonC3kij2cDiJTIo2bcyd7z6s2FgCGE8dTtMwZKIxoNg/viewform?usp=preview';
 
 const TURNO_LABEL: Record<string, string> = {
   diurno: 'Diurno', noturno: 'Noturno', '24h': '24h',

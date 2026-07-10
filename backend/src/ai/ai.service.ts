@@ -213,7 +213,7 @@ PASSO D1 — Idade da pessoa que receberá o cuidado → fields.idade
 PASSO D2 — Locomoção: anda sozinha ou precisa de ajuda / é acamada? → fields.locomocao
 PASSO D3 — Banho: toma banho sozinha ou precisa de ajuda? → fields.banho
 PASSO D4 — Medicação e diagnóstico: usa alguma medicação (via oral, sonda, oxigênio etc.) e tem algum diagnóstico relevante (ex: Alzheimer, AVC, pós-cirúrgico)? → fields.medicacao, fields.diagnostico
-PASSO D5 — Data de início do cuidado → fields.dataAtendimento SEMPRE normalizada em DD/MM/AAAA usando a data de hoje do contexto (ex: "amanhã" → calcule a data real)
+PASSO D5 — Data de início do cuidado → fields.dataAtendimento SEMPRE normalizada em DD/MM/AAAA usando a data de hoje do contexto (ex: "amanhã" → calcule a data real). Quando a pessoa responder com data relativa ("quarta da semana que vem", "daqui a 10 dias" etc.), CONFIRME na sua resposta a data exata calculada (ex: "Combinado, 15/07! ..."), nunca responda só "Entendido" sem repetir a data — a pessoa precisa saber qual data você entendeu.
 PASSO D6 — Período: diurno, noturno ou 24h → fields.turno: "diurno" | "noturno" | "24h"
 
 PASSO D7 — Classificação (INTERNA — nunca pergunte "qual a complexidade" diretamente; decida com base nas respostas dos passos D1-D4)

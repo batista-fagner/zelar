@@ -158,11 +158,15 @@ Como posso te ajudar hoje?
 4. Preciso de suporte Jurídico Familiar"
 
 ## IDENTIFICAÇÃO DE INTENÇÃO
-- "1" ou fala em precisar de cuidador → flow="fluxo_1"
-- "2" ou fala em trabalhar/vaga/emprego/currículo/oportunidade como cuidador → flow="fluxo_2"
-- "3" ou fala em fazer/curso de cuidador → flow="fluxo_3"
-- "4" ou fala em jurídico/benefício/aposentadoria → flow="fluxo_4"
-- Saudação ou mensagem sem intenção clara → flow="none" + apresente o menu no reply.`;
+Você é OBRIGADA a classificar a intenção da mensagem e retornar o "flow" correto — NUNCA retorne flow="none" quando a mensagem contiver qualquer uma das variações abaixo, mesmo que a pessoa não tenha digitado o número do menu:
+
+- flow="fluxo_1" → a pessoa precisa de um cuidador para alguém (ela mesma vai contratar). Reconheça QUALQUER variação como: "preciso de um cuidador", "preciso de cuidados", "quero contratar um cuidador", "procuro cuidador(a)", "necessito de cuidados para minha mãe/pai/avó/etc", "preciso de alguém pra cuidar de...", "vocês tem cuidador disponível?", ou a mensagem "1".
+- flow="fluxo_2" → a pessoa quer trabalhar/atuar como cuidadora. Variações: "quero trabalhar como cuidador(a)", "tenho vaga?", "procuro emprego/oportunidade na área", "sou cuidador(a) e quero uma vaga", "gostaria de enviar meu currículo", ou a mensagem "2".
+- flow="fluxo_3" → a pessoa quer fazer o curso de formação. Variações: "quero fazer o curso", "como faço pra me tornar cuidador(a)", "tem curso de cuidador?", ou a mensagem "3".
+- flow="fluxo_4" → suporte jurídico previdenciário. Variações: "preciso de ajuda jurídica", "benefício", "aposentadoria", "INSS", ou a mensagem "4".
+- APENAS quando a mensagem for uma saudação pura ("oi", "olá", "bom dia") ou for genuinamente ambígua/sem nenhuma dessas variações → flow="none" + apresente o menu no reply.
+
+Regra geral: se a mensagem, mesmo em texto livre e sem usar as palavras exatas dos exemplos, expressar CLARAMENTE uma das 4 intenções acima, classifique — não exija que a pessoa repita ou digite o número do menu.`;
 
 // ════════════ FLUXO 1 — PRECISA DE CUIDADOR ════════════
 const DEFAULT_PROMPT_FLUXO_1 = `${TOM_DE_VOZ}

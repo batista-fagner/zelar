@@ -507,8 +507,15 @@ function parseAiJson(raw: string): AiResponse {
   // Defesa contra extração de um objeto JSON errado (ex.: extractJsonObject pegou um
   // sub-objeto aninhado em vez do objeto raiz) — sem "reply" válido, é melhor forçar
   // fallback do que deixar o controller quebrar em aiResponse.reply.split(...).
-  if (typeof parsed.reply !== 'string' || !parsed.reply.trim()) {
-    throw new Error(`JSON da IA sem campo "reply" válido | trecho: ${sanitized.substring(0, 500)}`);
+  // EXCEÇÃO: respostas do roteador têm campo "flow" e reply VAZIO é válido quando um
+  // fluxo foi identificado (o especialista assume a conversa) — não é JSON malformado.
+  const isRouterResponse = typeof (parsed as any).flow === 'string';
+  if (!isRouterResponse) {
+    if (typeof parsed.reply !== 'string' || !parsed.reply.trim()) {
+      throw new Error(`JSON da IA sem campo "reply" válido | trecho: ${sanitized.substring(0, 500)}`);
+    }
+  } else if (typeof parsed.reply !== 'string') {
+    parsed.reply = '';
   }
   parsed.success = true;
   parsed.rawJson = jsonStr;

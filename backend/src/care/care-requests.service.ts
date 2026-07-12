@@ -65,9 +65,9 @@ export class CareRequestsService implements OnApplicationBootstrap {
   private buttonSender: ((phone: string, text: string, choices: string[], footerText?: string) => Promise<string | null>) | null = null;
   private statusChecker: ((messageid: string) => Promise<string | null>) | null = null;
 
-  /** Status brutos da uazapi que consideramos "entregue" no log visual. */
-  private static readonly DELIVERED_STATUSES = new Set(['DELIVERY_ACK', 'READ', 'PLAYED']);
-  private static readonly FAILED_STATUSES = new Set(['ERROR', 'FAILED']);
+  /** Status brutos da uazapi (ex: "Sent", "Delivered", "Read") que consideramos "entregue" no log visual — comparação case-insensitive. */
+  private static readonly DELIVERED_STATUSES = new Set(['delivered', 'read', 'played']);
+  private static readonly FAILED_STATUSES = new Set(['error', 'failed']);
 
   constructor(
     @InjectRepository(CareRequest)
@@ -361,6 +361,14 @@ export class CareRequestsService implements OnApplicationBootstrap {
     return request;
   }
 
+  /** Classifica o status bruto da uazapi (ex: "Sent", "Delivered") em 'enviado'|'entregue'|'falhou'. */
+  private static classifyDeliveryStatus(rawStatus: string): CareBroadcastEntry['status'] {
+    const s = rawStatus.toLowerCase();
+    if (CareRequestsService.FAILED_STATUSES.has(s)) return 'falhou';
+    if (CareRequestsService.DELIVERED_STATUSES.has(s)) return 'entregue';
+    return 'enviado';
+  }
+
   /** 20s após o broadcast, reconsulta o status de cada mensagem e atualiza o log visual. */
   private scheduleDeliveryChecks(requestId: string, entries: CareBroadcastEntry[]) {
     if (!this.statusChecker) return;
@@ -370,9 +378,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
         try {
           const rawStatus = await this.statusChecker!(entry.messageId!);
           if (!rawStatus) return;
-          const status: CareBroadcastEntry['status'] = CareRequestsService.FAILED_STATUSES.has(rawStatus)
-            ? 'falhou'
-            : CareRequestsService.DELIVERED_STATUSES.has(rawStatus) ? 'entregue' : 'enviado';
+          const status = CareRequestsService.classifyDeliveryStatus(rawStatus);
 
           const fresh = await this.requestsRepo.findOne({ where: { id: requestId } });
           if (!fresh) return;
@@ -409,9 +415,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
       try {
         const rawStatus = await this.statusChecker!(entry.messageId);
         if (!rawStatus) return entry;
-        const status: CareBroadcastEntry['status'] = CareRequestsService.FAILED_STATUSES.has(rawStatus)
-          ? 'falhou'
-          : CareRequestsService.DELIVERED_STATUSES.has(rawStatus) ? 'entregue' : 'enviado';
+        const status = CareRequestsService.classifyDeliveryStatus(rawStatus);
         if (status === entry.status) return entry;
         changed = true;
         return { ...entry, status, deliveredAt: status === 'entregue' ? new Date().toISOString() : entry.deliveredAt };

@@ -82,6 +82,9 @@ export class EvolutionController implements OnModuleInit {
     const phone = rawPhone.replace(/\D/g, '');
     // Resposta de botão (uazapi /send/menu): buttonOrListid traz o id escolhido ("aceito"/"recusar")
     const text: string = message.buttonOrListid || message.text;
+    if (message.buttonOrListid) {
+      this.logger.debug(`[BUTTON-DEBUG] payload completo: ${JSON.stringify(message)}`);
+    }
     const isAudio = message.type === 'media' && ['audio', 'ptt', 'myaudio'].includes(message.mediaType);
 
     // Ignora mensagens de números de operadores (evita IA responder a testes internos)

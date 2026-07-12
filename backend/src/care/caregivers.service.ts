@@ -30,6 +30,10 @@ export class CaregiversService {
     return this.repo.find({ where: { active: true }, order: { createdAt: 'ASC' } });
   }
 
+  findOne(id: string): Promise<Caregiver | null> {
+    return this.repo.findOne({ where: { id } });
+  }
+
   /**
    * Busca cuidador ativo pelo telefone do webhook — usado para interceptar respostas
    * de cuidadores antes do processamento de lead. Compara com e sem o 9º dígito.

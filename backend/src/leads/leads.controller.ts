@@ -130,11 +130,32 @@ export class LeadsController {
     return { ok: true };
   }
 
-  /** Log visual de entrega do broadcast pros cuidadores (quem recebeu, status, quem aceitou). */
+  /**
+   * Log visual de entrega do broadcast pros cuidadores (quem recebeu, status, quem aceitou)
+   * + resumo do atendimento (idade/locomoção/banho/medicação/diagnóstico/data/turno) pro
+   * operador não confirmar pagamento às cegas. Reconsulta ao vivo entregas ainda "enviado".
+   */
   @Get(':id/care-broadcast')
   async getCareBroadcast(@Param('id') id: string) {
-    const request = await this.careRequestsService.getLatestForLead(id);
-    if (!request) return null;
+    let request = await this.careRequestsService.getLatestForLead(id);
+
+    if (!request) {
+      const lead = await this.leadsService.findOne(id);
+      const pending = (lead?.aiContext as any)?.careSummaryPending ?? null;
+      if (!pending) return null;
+      return {
+        status: null,
+        complexity: null,
+        notifiedAt: null,
+        acceptedAt: null,
+        broadcastLog: [],
+        assignedCaregiverId: null,
+        assignedCaregiverName: null,
+        summary: pending,
+      };
+    }
+
+    request = await this.careRequestsService.refreshPendingDeliveryStatuses(request);
 
     let assignedCaregiverName: string | null = null;
     if (request.assignedCaregiverId) {
@@ -150,7 +171,22 @@ export class LeadsController {
       broadcastLog: request.broadcastLog ?? [],
       assignedCaregiverId: request.assignedCaregiverId,
       assignedCaregiverName,
+      summary: request.summary,
     };
+  }
+
+  /** Reenvia o broadcast reusando o summary da última solicitação expirada/cancelada. */
+  @Post(':id/rebroadcast')
+  async rebroadcast(@Param('id') id: string) {
+    try {
+      const request = await this.careRequestsService.rebroadcast(id);
+      if (!request) return { ok: false, error: 'Já existe uma solicitação em andamento para este lead' };
+      const updatedLead = await this.leadsService.findOne(id);
+      this.leadsGateway.emitLeadUpdated(updatedLead);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   }
 
   @Patch(':id/observations')

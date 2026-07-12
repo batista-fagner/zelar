@@ -12,7 +12,7 @@ export interface AiResponse {
   rawJson?: string;
   stage?: string;
   temperature?: string;
-  action?: 'none' | 'send_media' | 'send_payment_link' | 'aguardar_confirmacao_pagamento' | 'aguardar_boleto' | 'solicitar_cuidador';
+  action?: 'none' | 'send_media' | 'send_payment_link' | 'aguardar_confirmacao_pagamento' | 'aguardar_boleto';
   mediaName?: string;
   tags?: string[];
   shouldIgnore?: boolean;
@@ -86,7 +86,7 @@ RESPONDA SEMPRE em JSON com este formato exato (sem markdown, sem código, só o
   "reply": "texto da legenda ao enviar imagem, ou resposta normal",
   "stage": "novo_lead|em_atendimento|aguardando_pagamento|pagamento_confirmado|matriculado|perdido",
   "temperature": "quente|morno|frio",
-  "action": "none|send_media|send_payment_link|aguardar_confirmacao_pagamento|aguardar_boleto|solicitar_cuidador",
+  "action": "none|send_media|send_payment_link|aguardar_confirmacao_pagamento|aguardar_boleto",
   "mediaName": "nome-exato-do-arquivo-ou-null",
   "tags": [],
   "shouldIgnore": false,
@@ -208,6 +208,7 @@ Pergunte se é diurno ou noturno. → fields.turno: "diurno" | "noturno"
 PASSO H2 — Data de início do cuidado → fields.dataAtendimento SEMPRE normalizada em DD/MM/AAAA usando a data de hoje do contexto.
 - Data relativa ESPECÍFICA (dá pra calcular um único dia sem ambiguidade: "amanhã", "quarta da semana que vem", "daqui a 10 dias"): calcule e CONFIRME na resposta a data exata (ex: "Combinado, 15/07! ..."), nunca responda só "Entendido" sem repetir a data.
 - Data relativa VAGA (não dá pra calcular um único dia: "semana que vem", "mês que vem", "essa semana" sem dizer qual dia): NÃO assuma nenhuma data por conta própria — pergunte qual dia específico ela prefere. Só preencha fields.dataAtendimento depois que a pessoa confirmar um dia específico.
+- NUNCA aceite uma data anterior à data de hoje informada no contexto — se a pessoa informar uma data que já passou, avise com gentileza que essa data já passou e peça outra data.
 
 PASSO H3 — Enviar catálogo
 Confirme o período E a data antes de enviar. Assim que tiver AMBOS (turno e data), você é OBRIGADA a emitir action="send_media" NESTA MESMA resposta — nunca finalize dizendo "entraremos em contato" sem antes enviar a imagem do catálogo.
@@ -225,6 +226,7 @@ PASSO D4 — Medicação e diagnóstico: usa alguma medicação (via oral, sonda
 PASSO D5 — Data de início do cuidado → fields.dataAtendimento SEMPRE normalizada em DD/MM/AAAA usando a data de hoje do contexto.
 - Data relativa ESPECÍFICA (dá pra calcular um único dia sem ambiguidade: "amanhã", "quarta da semana que vem", "daqui a 10 dias"): calcule e CONFIRME na resposta a data exata (ex: "Combinado, 15/07! ..."), nunca responda só "Entendido" sem repetir a data.
 - Data relativa VAGA (não dá pra calcular um único dia: "semana que vem", "mês que vem", "essa semana" sem dizer qual dia): NÃO assuma nenhuma data por conta própria — pergunte qual dia específico ela prefere (ex: "Semana que vem, qual dia seria melhor pra você?"). Só preencha fields.dataAtendimento depois que a pessoa confirmar um dia específico.
+- NUNCA aceite uma data anterior à data de hoje informada no contexto — se a pessoa informar uma data que já passou, avise com gentileza que essa data já passou e peça outra data.
 PASSO D6 — Período: diurno, noturno ou 24h → fields.turno: "diurno" | "noturno" | "24h"
 
 PASSO D7 — Classificação (INTERNA — nunca pergunte "qual a complexidade" diretamente; decida com base nas respostas dos passos D1-D4)

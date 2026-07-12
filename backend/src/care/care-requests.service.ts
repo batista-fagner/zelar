@@ -49,6 +49,15 @@ function normalizeText(s: string): string {
   return (s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
+/** DD/MM/AAAA e anterior a data de hoje em America/Sao Paulo? Formato invalido - false (nao bloqueia). */
+function isPastDate(ddmmyyyy: string): boolean {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((ddmmyyyy ?? '').trim());
+  if (!m) return false;
+  const [, dd, mm, yyyy] = m;
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  return `${yyyy}-${mm}-${dd}` < todayStr;
+}
+
 @Injectable()
 export class CareRequestsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CareRequestsService.name);
@@ -110,6 +119,26 @@ export class CareRequestsService implements OnApplicationBootstrap {
   }
 
   /**
+   * Adiciona/remove etiquetas do lead e emite a atualização via WebSocket. Usado para
+   * refletir o status do broadcast no card do Kanban (buscando_cuidador, broadcast_expirado,
+   * cuidador_designado) sem custo extra de rede no frontend (as labels já vêm com o lead).
+   */
+  private async updateLeadLabels(leadId: string, add: string[], remove: string[]): Promise<void> {
+    try {
+      const lead = await this.leadsService.findOne(leadId);
+      if (!lead) return;
+      const labels = new Set(lead.labels ?? []);
+      remove.forEach(l => labels.delete(l));
+      add.forEach(l => labels.add(l));
+      await this.leadsService.update(lead.id, { labels: Array.from(labels) } as any);
+      const updated = await this.leadsService.findOne(lead.id);
+      this.leadsGateway.emitLeadUpdated(updated);
+    } catch (err) {
+      this.logger.error(`[CARE] Falha ao atualizar etiquetas do lead ${leadId}: ${err.message}`);
+    }
+  }
+
+  /**
    * Valor do plano (centavos) conforme tipo de cuidado. Hospitalar tem tabela própria
    * (só diurno/noturno, sem complexidade nem 24h) — não usa a tabela de "médio" domiciliar.
    */
@@ -157,18 +186,18 @@ export class CareRequestsService implements OnApplicationBootstrap {
         this.logger.error(`[CARE] Falha ao remover evento do Calendar ao cancelar: ${err.message}`));
     }
 
-    // Remove a etiqueta de cuidador designado do lead
-    try {
-      const lead = await this.leadsService.findOne(leadId);
-      if (lead) {
-        const labels = (lead.labels ?? []).filter(l => l !== 'cuidador_designado');
-        await this.leadsService.update(lead.id, { labels } as any);
-        const updated = await this.leadsService.findOne(lead.id);
-        this.leadsGateway.emitLeadUpdated(updated);
+    // Avisa o cuidador designado — sem isso ele continua achando que o atendimento é dele
+    if (request.assignedCaregiverId) {
+      const caregiver = await this.caregiversService.findOne(request.assignedCaregiverId);
+      if (caregiver) {
+        const s = request.summary;
+        const msg = `O atendimento de ${s.clientName} em ${s.dataAtendimento} foi cancelado pela Zelar. Obrigada!`;
+        await this.send(caregiver.phone, msg).catch(err =>
+          this.logger.error(`[CARE] Falha ao avisar cuidador do cancelamento: ${err.message}`));
       }
-    } catch (err) {
-      this.logger.error(`[CARE] Falha ao remover etiqueta ao cancelar: ${err.message}`);
     }
+
+    await this.updateLeadLabels(leadId, [], ['cuidador_designado', 'buscando_cuidador', 'broadcast_expirado']);
 
     this.logger.log(`[CARE] Atendimento ${request.id} cancelado (lead ${leadId})`);
     return request;
@@ -203,11 +232,13 @@ export class CareRequestsService implements OnApplicationBootstrap {
     const complexity: CareComplexity = (['simples', 'medio', 'complexo'].includes(complexityRaw)
       ? complexityRaw : 'medio') as CareComplexity;
     const turnoValid = ['diurno', 'noturno', '24h'].includes(pending?.turno);
+    const dataIsPast = isPastDate(pending?.dataAtendimento ?? '');
 
-    if (!pending?.clientName || !pending?.tipoCuidado || !pending?.regiao || !pending?.dataAtendimento || !turnoValid) {
-      this.logger.warn(`[CARE] Pagamento confirmado para lead ${lead.id} mas dados do atendimento incompletos — broadcast abortado`);
+    if (!pending?.clientName || !pending?.tipoCuidado || !pending?.regiao || !pending?.dataAtendimento || !turnoValid || dataIsPast) {
+      const motivo = dataIsPast ? ' (data do atendimento já passou)' : '';
+      this.logger.warn(`[CARE] Pagamento confirmado para lead ${lead.id} mas dados do atendimento incompletos${motivo} — broadcast abortado`);
       await this.send(this.operatorPhone(),
-        `⚠️ Pagamento confirmado para ${lead.name ?? leadPhoneDigits} mas faltam dados do atendimento — verifique manualmente.`
+        `⚠️ Pagamento confirmado para ${lead.name ?? leadPhoneDigits} mas faltam dados do atendimento${motivo} — verifique manualmente.`
       ).catch(() => {});
       return;
     }
@@ -240,6 +271,18 @@ export class CareRequestsService implements OnApplicationBootstrap {
       await this.send(this.operatorPhone(),
         `⚠️ Pagamento confirmado para ${summary.clientName} mas nenhum cuidador ativo cadastrado — atender manualmente.`
       ).catch(() => {});
+      return;
+    }
+
+    // Limpa os dados acumulados agora que já estão gravados em CareRequest.summary — evita
+    // misturar com uma eventual 2ª solicitação futura do mesmo lead.
+    try {
+      const freshLead = await this.leadsService.findOne(lead.id);
+      const ctx = { ...((freshLead?.aiContext as any) ?? {}) };
+      delete ctx.careSummaryPending;
+      await this.leadsService.update(lead.id, { aiContext: ctx } as any);
+    } catch (err) {
+      this.logger.error(`[CARE] Falha ao limpar careSummaryPending: ${err.message}`);
     }
   }
 
@@ -303,6 +346,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
     request.broadcastLog = broadcastLog;
     await this.requestsRepo.save(request);
     this.scheduleDeliveryChecks(request.id, broadcastLog);
+    await this.updateLeadLabels(lead.id, ['buscando_cuidador'], ['broadcast_expirado']);
 
     return request;
   }
@@ -336,6 +380,42 @@ export class CareRequestsService implements OnApplicationBootstrap {
   /** Última solicitação (qualquer status) criada para o lead — usada pro log visual no Kanban. */
   async getLatestForLead(leadId: string): Promise<CareRequest | null> {
     return this.requestsRepo.findOne({ where: { leadId }, order: { createdAt: 'DESC' } });
+  }
+
+  /**
+   * Reconsulta ao vivo o status das entradas do broadcast ainda em "enviado" — cobre o caso
+   * em que o `setTimeout` de 20s do scheduleDeliveryChecks se perde num restart do Railway
+   * (o status ficaria travado em "Enviado" para sempre). Chamado ao abrir o modal no Kanban.
+   */
+  async refreshPendingDeliveryStatuses(request: CareRequest): Promise<CareRequest> {
+    if (!this.statusChecker) return request;
+    const log = request.broadcastLog ?? [];
+    const hasPending = log.some(e => e.status === 'enviado' && e.messageId);
+    if (!hasPending) return request;
+
+    let changed = false;
+    const updatedLog = await Promise.all(log.map(async (entry) => {
+      if (entry.status !== 'enviado' || !entry.messageId) return entry;
+      try {
+        const rawStatus = await this.statusChecker!(entry.messageId);
+        if (!rawStatus) return entry;
+        const status: CareBroadcastEntry['status'] = CareRequestsService.FAILED_STATUSES.has(rawStatus)
+          ? 'falhou'
+          : CareRequestsService.DELIVERED_STATUSES.has(rawStatus) ? 'entregue' : 'enviado';
+        if (status === entry.status) return entry;
+        changed = true;
+        return { ...entry, status, deliveredAt: status === 'entregue' ? new Date().toISOString() : entry.deliveredAt };
+      } catch (err) {
+        this.logger.warn(`[CARE] Falha ao reconsultar entrega (${entry.phone}): ${err.message}`);
+        return entry;
+      }
+    }));
+
+    if (changed) {
+      await this.requestsRepo.update(request.id, { broadcastLog: updatedLog });
+      request.broadcastLog = updatedLog;
+    }
+    return request;
   }
 
   /**
@@ -428,17 +508,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
     }
 
     // 4. Etiqueta o lead como atendido por cuidador
-    try {
-      const lead = await this.leadsService.findOne(request.leadId);
-      if (lead) {
-        const labels = Array.from(new Set([...(lead.labels ?? []), 'cuidador_designado']));
-        await this.leadsService.update(lead.id, { labels } as any);
-        const updated = await this.leadsService.findOne(lead.id);
-        this.leadsGateway.emitLeadUpdated(updated);
-      }
-    } catch (err) {
-      this.logger.error(`[CARE] Falha ao etiquetar lead: ${err.message}`);
-    }
+    await this.updateLeadLabels(request.leadId, ['cuidador_designado'], ['buscando_cuidador', 'broadcast_expirado']);
 
     // 5. Registra a atividade no Google Calendar (opcional — degrada graciosamente)
     try {
@@ -510,6 +580,26 @@ export class CareRequestsService implements OnApplicationBootstrap {
       const clientMsg = 'Nossa equipe está finalizando a busca pelo cuidador ideal para você e já te retorna por aqui 😊';
       await this.send(request.leadPhone, clientMsg).catch(err =>
         this.logger.error(`[CARE] Falha ao avisar cliente (timeout): ${err.message}`));
+
+      await this.updateLeadLabels(request.leadId, ['broadcast_expirado'], ['buscando_cuidador']);
     }
+  }
+
+  /**
+   * Redispara o broadcast reusando o summary/complexidade de uma solicitação expirada ou
+   * cancelada — evita a gambiarra de cancelar + reconfirmar pagamento para tentar de novo.
+   * Retorna null se já houver uma solicitação em andamento (idempotência).
+   */
+  async rebroadcast(leadId: string): Promise<CareRequest | null> {
+    const last = await this.getLatestForLead(leadId);
+    if (!last || !['expirado', 'cancelado'].includes(last.status)) {
+      throw new Error('Só é possível reenviar quando a última solicitação expirou ou foi cancelada');
+    }
+    if (await this.hasPendingForLead(leadId)) return null;
+
+    const lead = await this.leadsService.findOne(leadId);
+    if (!lead) throw new Error('Lead não encontrado');
+
+    return this.createAndBroadcast(lead, last.summary, last.complexity);
   }
 }

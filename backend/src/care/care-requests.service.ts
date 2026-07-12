@@ -435,17 +435,26 @@ export class CareRequestsService implements OnApplicationBootstrap {
   /**
    * Processa resposta de um cuidador (mensagem interceptada no webhook).
    * Claim atômico: UPDATE condicionado a status='aguardando_aceite' — o primeiro vence.
+   * `quotedMessageId` (quando a resposta veio de um clique no botão) identifica exatamente
+   * qual mensagem de broadcast foi respondida — evita ambiguidade quando o cuidador tem
+   * 2+ solicitações abertas ao mesmo tempo (sem isso, cairia sempre na mais antiga).
    */
-  async handleCaregiverReply(caregiver: Caregiver, text: string): Promise<void> {
+  async handleCaregiverReply(caregiver: Caregiver, text: string, quotedMessageId?: string | null): Promise<void> {
     const normalized = normalizeText(text);
     const caregiverPhone = caregiver.phone.replace(/\D/g, '');
 
-    // Solicitação pendente mais antiga em que este cuidador foi notificado
+    // Solicitações pendentes em que este cuidador foi notificado, da mais antiga pra mais nova
     const pendings = await this.requestsRepo.find({
       where: { status: 'aguardando_aceite' },
       order: { createdAt: 'ASC' },
     });
-    const request = pendings.find(r => (r.notifiedPhones ?? []).includes(caregiverPhone));
+    const candidates = pendings.filter(r => (r.notifiedPhones ?? []).includes(caregiverPhone));
+
+    // Correlação exata pela mensagem clicada; se não achar (resposta em texto livre, botão
+    // de uma solicitação já resolvida, etc.), cai no fallback: a mais antiga ainda aberta.
+    const request = (quotedMessageId
+      ? candidates.find(r => (r.broadcastLog ?? []).some(e => e.messageId === quotedMessageId))
+      : undefined) ?? candidates[0];
 
     if (!request) {
       this.logger.debug(`[CARE] Mensagem de cuidador ${caregiver.name} sem solicitação pendente — ignorada`);

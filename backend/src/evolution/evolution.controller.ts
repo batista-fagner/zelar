@@ -159,6 +159,21 @@ export class EvolutionController implements OnModuleInit {
       return { ok: true };
     }
 
+    // Resposta via botão do broadcast (Aceito/Recusar): trata IMEDIATAMENTE, sem passar pela
+    // fila de debounce — cada clique é um evento discreto e único, e o `quoted` (messageId da
+    // mensagem original) permite casar com a solicitação exata, mesmo que o cuidador tenha
+    // 2+ solicitações abertas ao mesmo tempo.
+    if (message.buttonOrListid) {
+      const caregiver = await this.caregiversService.findActiveByPhone(phone);
+      if (caregiver) {
+        const quotedMessageId: string | null = message.quoted || null;
+        this.logger.log(`[CARE] Botão de cuidador ${caregiver.name} (${phone}) interceptado: "${message.buttonOrListid}" (quoted=${quotedMessageId})`);
+        this.careRequestsService.handleCaregiverReply(caregiver, message.buttonOrListid, quotedMessageId).catch(err =>
+          this.logger.error(`[CARE] Erro ao processar resposta de botão: ${err.message}`));
+        return { ok: true };
+      }
+    }
+
     this.logger.log(`Mensagem recebida de ${phone}: ${text}`);
 
     this.messageQueue.enqueue(phone, text, (combinedText) => {

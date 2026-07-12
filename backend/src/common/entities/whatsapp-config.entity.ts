@@ -89,6 +89,20 @@ export class WhatsappConfig {
   @Column({ name: 'caregiver_percent', type: 'int', default: 55 })
   caregiverPercent: number;
 
+  // Fluxo 1 — atribuições do cuidador por plano (texto livre, um item por linha, cadastrado
+  // pelo operador). Enviado ao cuidador no broadcast, formatado em bullets.
+  @Column({ name: 'care_duties_simples', nullable: true, type: 'text' })
+  careDutiesSimples: string | null;
+
+  @Column({ name: 'care_duties_medio', nullable: true, type: 'text' })
+  careDutiesMedio: string | null;
+
+  @Column({ name: 'care_duties_complexo', nullable: true, type: 'text' })
+  careDutiesComplexo: string | null;
+
+  @Column({ name: 'care_duties_hospitalar', nullable: true, type: 'text' })
+  careDutiesHospitalar: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

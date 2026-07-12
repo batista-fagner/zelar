@@ -141,12 +141,15 @@ export class CareRequestsService implements OnApplicationBootstrap {
   /**
    * Valor do plano (centavos) conforme tipo de cuidado. Hospitalar tem tabela própria
    * (só diurno/noturno, sem complexidade nem 24h) — não usa a tabela de "médio" domiciliar.
+   * Também devolve o texto de atribuições do cuidador (cadastrado pelo operador em
+   * Configurações), já formatado em bullets pra entrar direto na mensagem do broadcast.
    */
-  private async planValueFor(complexity: CareComplexity, turno: string, tipoCuidado?: string): Promise<{ planValue: number; caregiverValue: number }> {
+  private async planValueFor(complexity: CareComplexity, turno: string, tipoCuidado?: string): Promise<{ planValue: number; caregiverValue: number; dutiesText: string }> {
     const cfg = await this.configRepo.findOne({ where: {} });
+    const isHospitalar = normalizeText(tipoCuidado ?? '') === 'hospitalar';
 
     let planValue: number;
-    if (normalizeText(tipoCuidado ?? '') === 'hospitalar') {
+    if (isHospitalar) {
       const hospitalarTable: Record<string, number> = {
         diurno: cfg?.planHospitalarDiurnoValue ?? 0,
         noturno: cfg?.planHospitalarNoturnoValue ?? 0,
@@ -162,7 +165,13 @@ export class CareRequestsService implements OnApplicationBootstrap {
     }
 
     const percent = cfg?.caregiverPercent ?? 55;
-    return { planValue, caregiverValue: Math.round(planValue * percent / 100) };
+
+    const dutiesRaw = isHospitalar
+      ? cfg?.careDutiesHospitalar
+      : { simples: cfg?.careDutiesSimples, medio: cfg?.careDutiesMedio, complexo: cfg?.careDutiesComplexo }[complexity];
+    const dutiesText = (dutiesRaw ?? '').split('\n').map(l => l.trim()).filter(Boolean).map(l => `• ${l}`).join('\n');
+
+    return { planValue, caregiverValue: Math.round(planValue * percent / 100), dutiesText };
   }
 
   /**
@@ -297,7 +306,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
       return null;
     }
 
-    const { planValue, caregiverValue } = await this.planValueFor(complexity, summary.turno, summary.tipoCuidado);
+    const { planValue, caregiverValue, dutiesText } = await this.planValueFor(complexity, summary.turno, summary.tipoCuidado);
 
     const request = await this.requestsRepo.save(this.requestsRepo.create({
       leadId: lead.id,
@@ -314,13 +323,14 @@ export class CareRequestsService implements OnApplicationBootstrap {
     const complexityLabel = complexity.charAt(0).toUpperCase() + complexity.slice(1);
     const valueLine = caregiverValue > 0 ? `\n💰 Valor a receber: ${formatBRL(caregiverValue)}` : '';
     const patientSummary = buildPatientSummaryLine(summary);
+    const dutiesSection = dutiesText ? `\n📋 O que você vai fazer:\n${dutiesText}\n` : '';
     const msg = `🩺 *Nova solicitação de atendimento — Zelar*\n\n` +
       `👤 Cliente: ${summary.clientName}\n` +
       `🩹 Tipo de cuidado: ${summary.tipoCuidado}\n` +
       `📍 Região: ${summary.regiao}\n` +
       `🗓 Data: ${summary.dataAtendimento}\n` +
       `⏰ Turno: ${TURNO_LABEL[summary.turno] ?? summary.turno}\n` +
-      `📊 Complexidade: ${complexityLabel}${valueLine}\n${patientSummary}\n` +
+      `📊 Complexidade: ${complexityLabel}${valueLine}\n${patientSummary}${dutiesSection}\n` +
       `O primeiro que aceitar fica com o atendimento.`;
 
     // Broadcast sequencial com delay entre envios — botões "Aceito"/"Recusar" (fallback: texto livre)

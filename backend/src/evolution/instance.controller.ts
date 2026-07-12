@@ -72,6 +72,10 @@ export class InstanceController {
     planHospitalarDiurnoValue?: number;
     planHospitalarNoturnoValue?: number;
     caregiverPercent?: number;
+    careDutiesSimples?: string | null;
+    careDutiesMedio?: string | null;
+    careDutiesComplexo?: string | null;
+    careDutiesHospitalar?: string | null;
   }) {
     return this.whatsappConfigService.updateConfig(body);
   }

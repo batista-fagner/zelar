@@ -136,6 +136,10 @@ export class WhatsappConfigService {
     planHospitalarDiurnoValue?: number;
     planHospitalarNoturnoValue?: number;
     caregiverPercent?: number;
+    careDutiesSimples?: string | null;
+    careDutiesMedio?: string | null;
+    careDutiesComplexo?: string | null;
+    careDutiesHospitalar?: string | null;
   }): Promise<WhatsappConfig> {
     let record = await this.get();
     if (!record) record = this.repo.create();
@@ -158,6 +162,10 @@ export class WhatsappConfigService {
     }
     if ('caregiverPercent' in fields) {
       record.caregiverPercent = Math.min(100, toNonNegativeInt(fields.caregiverPercent)) || 55;
+    }
+    const dutiesFields = ['careDutiesSimples', 'careDutiesMedio', 'careDutiesComplexo', 'careDutiesHospitalar'] as const;
+    for (const key of dutiesFields) {
+      if (key in fields) (record as any)[key] = (fields as any)[key] ?? null;
     }
     return this.repo.save(record);
   }

@@ -80,6 +80,8 @@ export default function SettingsPage() {
     percent: 55,
   })
   const [savingPlans, setSavingPlans] = useState(false)
+  const [careDuties, setCareDuties] = useState({ simples: '', medio: '', complexo: '', hospitalar: '' })
+  const [savingDuties, setSavingDuties] = useState(false)
   const pollingRef = useRef(null)
 
   const fetchStatus = async () => {
@@ -123,6 +125,12 @@ export default function SettingsPage() {
         hospitalarDiurno: centsToReais(data?.planHospitalarDiurnoValue ?? 0),
         hospitalarNoturno: centsToReais(data?.planHospitalarNoturnoValue ?? 0),
         percent: data?.caregiverPercent ?? 55,
+      })
+      setCareDuties({
+        simples: data?.careDutiesSimples ?? '',
+        medio: data?.careDutiesMedio ?? '',
+        complexo: data?.careDutiesComplexo ?? '',
+        hospitalar: data?.careDutiesHospitalar ?? '',
       })
       return data
     } catch {
@@ -199,6 +207,24 @@ export default function SettingsPage() {
       })
     } finally {
       setSavingPlans(false)
+    }
+  }
+
+  const handleSaveDuties = async () => {
+    setSavingDuties(true)
+    try {
+      await fetch(`${API_URL}/instance/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          careDutiesSimples: careDuties.simples,
+          careDutiesMedio: careDuties.medio,
+          careDutiesComplexo: careDuties.complexo,
+          careDutiesHospitalar: careDuties.hospitalar,
+        }),
+      })
+    } finally {
+      setSavingDuties(false)
     }
   }
 
@@ -918,6 +944,43 @@ export default function SettingsPage() {
           >
             {savingPlans ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {savingPlans ? 'Salvando...' : 'Salvar valores'}
+          </button>
+        </div>
+      )}
+
+      {/* Card de atribuições do cuidador por plano (Fluxo 1) */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">O que o cuidador vai fazer (Fluxo 1)</h2>
+          <p className="text-xs text-gray-500 mb-4">Um item por linha — cada linha vira um tópico na mensagem enviada ao cuidador junto com o resumo do atendimento.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { key: 'simples', label: 'Simples' },
+              { key: 'medio', label: 'Médio' },
+              { key: 'complexo', label: 'Complexo' },
+              { key: 'hospitalar', label: 'Hospitalar' },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">{label}</label>
+                <textarea
+                  rows={5}
+                  placeholder={'Ex:\nAuxiliar na higiene pessoal\nAdministrar medicação nos horários\nAcompanhar refeições'}
+                  value={careDuties[key]}
+                  onChange={e => setCareDuties(prev => ({ ...prev, [key]: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleSaveDuties}
+            disabled={savingDuties}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50 mt-4"
+          >
+            {savingDuties ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {savingDuties ? 'Salvando...' : 'Salvar atribuições'}
           </button>
         </div>
       )}

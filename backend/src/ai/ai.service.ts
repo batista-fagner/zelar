@@ -558,7 +558,7 @@ export class AiService {
   private readonly genai: GoogleGenerativeAI;
   private readonly openrouterKey: string;
   private readonly openrouterModel = 'openai/gpt-oss-120b:free';
-  private readonly geminiModel = 'gemini-2.5-flash';
+  private readonly geminiModel = 'gemini-3.1-flash-lite';
   private readonly geminiModelFallback = 'gemini-2.5-flash-lite';
 
   constructor(private config: ConfigService) {
@@ -623,13 +623,13 @@ export class AiService {
     try {
       return await this.callGemini(systemPrompt, history, incomingText, this.geminiModel);
     } catch (err) {
-      this.logger.warn(`⚠️ [${label}] Gemini Flash Lite falhou (${err.message}) — caindo para Gemini Flash`);
+      this.logger.warn(`⚠️ [${label}] ${this.geminiModel} falhou (${err.message}) — caindo para ${this.geminiModelFallback}`);
     }
 
     try {
       return await this.callGemini(systemPrompt, history, incomingText, this.geminiModelFallback);
     } catch (err) {
-      this.logger.error(`❌ [${label}] Gemini Flash (2º fallback) também falhou: ${err.message}`);
+      this.logger.error(`❌ [${label}] ${this.geminiModelFallback} (2º fallback) também falhou: ${err.message}`);
       return { reply: 'Olá! Tive um probleminha aqui, pode repetir? 😊', success: false };
     }
   }

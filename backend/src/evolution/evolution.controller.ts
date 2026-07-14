@@ -87,6 +87,29 @@ export class EvolutionController implements OnModuleInit {
     }
     const isAudio = message.type === 'media' && ['audio', 'ptt', 'myaudio'].includes(message.mediaType);
 
+    // Resposta via botão do broadcast (Aceito/Recusar): trata ANTES do filtro de operador —
+    // um número cadastrado como cuidador pode também estar em OPERATOR_PHONES (dupla função),
+    // e nesse caso o filtro abaixo descartaria o clique em silêncio, mesmo sendo uma ação
+    // legítima do cuidador (não uma mensagem que a IA precisaria responder).
+    if (message.buttonOrListid) {
+      const caregiver = await this.caregiversService.findActiveByPhone(phone);
+      if (caregiver) {
+        const buttonMessageId: string = message.messageid;
+        if (this.processedIds.has(buttonMessageId)) {
+          this.logger.warn(`Webhook duplicado ignorado: ${buttonMessageId}`);
+          return { ok: true };
+        }
+        this.processedIds.add(buttonMessageId);
+        setTimeout(() => this.processedIds.delete(buttonMessageId), 5 * 60 * 1000);
+
+        const quotedMessageId: string | null = message.quoted || null;
+        this.logger.log(`[CARE] Botão de cuidador ${caregiver.name} (${phone}) interceptado: "${message.buttonOrListid}" (quoted=${quotedMessageId})`);
+        this.careRequestsService.handleCaregiverReply(caregiver, message.buttonOrListid, quotedMessageId).catch(err =>
+          this.logger.error(`[CARE] Erro ao processar resposta de botão: ${err.message}`));
+        return { ok: true };
+      }
+    }
+
     // Ignora mensagens de números de operadores (evita IA responder a testes internos)
     const operatorPhones = (this.configService.get<string>('OPERATOR_PHONES') ?? '')
       .split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
@@ -157,21 +180,6 @@ export class EvolutionController implements OnModuleInit {
         this.logger.error(`Erro ao transcrever áudio de ${phone}: ${err.message}`),
       );
       return { ok: true };
-    }
-
-    // Resposta via botão do broadcast (Aceito/Recusar): trata IMEDIATAMENTE, sem passar pela
-    // fila de debounce — cada clique é um evento discreto e único, e o `quoted` (messageId da
-    // mensagem original) permite casar com a solicitação exata, mesmo que o cuidador tenha
-    // 2+ solicitações abertas ao mesmo tempo.
-    if (message.buttonOrListid) {
-      const caregiver = await this.caregiversService.findActiveByPhone(phone);
-      if (caregiver) {
-        const quotedMessageId: string | null = message.quoted || null;
-        this.logger.log(`[CARE] Botão de cuidador ${caregiver.name} (${phone}) interceptado: "${message.buttonOrListid}" (quoted=${quotedMessageId})`);
-        this.careRequestsService.handleCaregiverReply(caregiver, message.buttonOrListid, quotedMessageId).catch(err =>
-          this.logger.error(`[CARE] Erro ao processar resposta de botão: ${err.message}`));
-        return { ok: true };
-      }
     }
 
     this.logger.log(`Mensagem recebida de ${phone}: ${text}`);

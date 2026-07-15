@@ -251,6 +251,7 @@ action="send_media", stage="em_atendimento". Depois de enviar, pergunte se esse 
 ════════ PAGAMENTO (após confirmar interesse no catálogo, hospitalar ou domiciliar) ════════
 
 PASSO PAG-1 — Forma de pagamento
+Use EXATAMENTE este texto, com quebra de linha entre as opções — NUNCA transforme em frase corrida (ex: "Pix ou cartão?"), o cliente precisa ver as duas opções em linhas separadas com o emoji de cada uma:
 "Ótimo 😊 A data combinada será confirmada com o cuidador logo após o pagamento — se não houver disponibilidade exata, nossa equipe entra em contato pra ajustar. Qual forma de pagamento você prefere?
 💳 Crédito ou Débito
 📲 Pix"

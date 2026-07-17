@@ -267,6 +267,10 @@ export class LeadsService implements OnApplicationBootstrap {
     });
 
     for (const lead of leads) {
+      // Fluxo 1 (cuidador): o formulário só é enviado quando um cuidador aceita e é
+      // designado — antes disso não existe "formulário" pra perguntar se preencheu.
+      if (lead.activeFlow === 'fluxo_1' && !(lead.labels ?? []).includes('cuidador_designado')) continue;
+
       const stageHistory = await this.historyRepo.findOne({
         where: { leadId: lead.id, toStage: 'pagamento_confirmado' as LeadStage },
         order: { createdAt: 'DESC' },

@@ -604,6 +604,12 @@ export class CareRequestsService implements OnApplicationBootstrap {
       await this.send(request.leadPhone, clientMsg).catch(err =>
         this.logger.error(`[CARE] Falha ao avisar cliente (timeout): ${err.message}`));
 
+      // Pausa a IA — sem cuidador encontrado, ela não tem o que responder de forma
+      // confiável. Operadora resolve manualmente (reenviar broadcast ou contato direto)
+      // e reativa pelo switch do card; reativação automática só ocorre quando um
+      // cuidador de fato aceitar (completeAssignment).
+      await this.leadsService.toggleAi(request.leadId, false);
+
       await this.updateLeadLabels(request.leadId, ['broadcast_expirado'], ['buscando_cuidador']);
     }
   }

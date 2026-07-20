@@ -242,8 +242,11 @@ export class CareRequestsService implements OnApplicationBootstrap {
       ? complexityRaw : 'medio') as CareComplexity;
     const turnoValid = ['diurno', 'noturno', '24h'].includes(pending?.turno);
     const dataIsPast = isPastDate(pending?.dataAtendimento ?? '');
+    // Rua/número/ponto de referência só fazem sentido no ramo domiciliar (hospitalar é atendido no hospital).
+    const enderecoIncompleto = pending?.tipoCuidado === 'domiciliar'
+      && (!pending?.rua || !pending?.numero || !pending?.pontoReferencia);
 
-    if (!pending?.clientName || !pending?.tipoCuidado || !pending?.regiao || !pending?.dataAtendimento || !turnoValid || dataIsPast) {
+    if (!pending?.clientName || !pending?.tipoCuidado || !pending?.regiao || !pending?.dataAtendimento || !turnoValid || dataIsPast || enderecoIncompleto) {
       const motivo = dataIsPast ? ' (data do atendimento já passou)' : '';
       this.logger.warn(`[CARE] Pagamento confirmado para lead ${lead.id} mas dados do atendimento incompletos${motivo} — broadcast abortado`);
       await this.send(this.operatorPhone(),
@@ -266,6 +269,9 @@ export class CareRequestsService implements OnApplicationBootstrap {
       clientName: pending.clientName,
       tipoCuidado: pending.tipoCuidado,
       regiao: pending.regiao,
+      rua: pending.rua ?? null,
+      numero: pending.numero ?? null,
+      pontoReferencia: pending.pontoReferencia ?? null,
       dataAtendimento: pending.dataAtendimento,
       turno: pending.turno,
       idade: pending.idade ?? null,
@@ -496,9 +502,14 @@ export class CareRequestsService implements OnApplicationBootstrap {
     const caregiverPhone = caregiver.phone.replace(/\D/g, '');
 
     // 1. Confirma ao cuidador com o contato do cliente
+    // Endereço completo (rua/número/ponto de referência) só é revelado aqui, depois do
+    // aceite — no broadcast antes disso só aparece a região, por privacidade do cliente.
+    const enderecoCompleto = s.rua
+      ? `\n🏠 Endereço: ${s.rua}, ${s.numero ?? 's/n'}${s.pontoReferencia ? ` — Ref: ${s.pontoReferencia}` : ''}`
+      : '';
     const caregiverMsg = `Ótimo, o atendimento é seu! 🎉\n\n` +
       `👤 Cliente: ${s.clientName}\n📱 WhatsApp: ${request.leadPhone}\n` +
-      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}\n` +
+      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}${enderecoCompleto}\n` +
       `${buildPatientSummaryLine(s)}\n` +
       `Entre em contato com o cliente para combinar os detalhes.`;
     await this.send(caregiverPhone, caregiverMsg).catch(err =>

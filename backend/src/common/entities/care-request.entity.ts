@@ -20,6 +20,10 @@ export interface CareRequestSummary {
   clientName: string;
   tipoCuidado: string;
   regiao: string;
+  // Detalhes do endereço (só ramo domiciliar) — só revelados ao cuidador após aceitar.
+  rua?: string | null;
+  numero?: string | null;
+  pontoReferencia?: string | null;
   dataAtendimento: string; // DD/MM/AAAA (validado no backend antes de criar)
   turno: 'diurno' | 'noturno' | '24h';
   // Só preenchidos no ramo domiciliar — dão ao cuidador um resumo do paciente antes de aceitar.

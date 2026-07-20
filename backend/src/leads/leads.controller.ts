@@ -207,6 +207,17 @@ export class LeadsController {
     return { ok: true };
   }
 
+  @Get('inactivity-followup/config')
+  getInactivityFollowupConfig() {
+    return this.leadsService.getInactivityFollowupConfig();
+  }
+
+  @Post('inactivity-followup/config')
+  async updateInactivityFollowupConfig(@Body() body: { minutes: number; message: string }) {
+    await this.leadsService.updateInactivityFollowupConfig(body.minutes, body.message);
+    return { ok: true };
+  }
+
   @Delete(':id')
   async deleteLead(@Param('id') id: string, @Body() body: { reason?: string } = {}) {
     await this.leadsService.deleteLead(id, body.reason ?? '');

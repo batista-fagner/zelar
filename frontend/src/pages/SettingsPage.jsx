@@ -66,6 +66,9 @@ export default function SettingsPage() {
   const [followupDelay, setFollowupDelay] = useState(60)
   const [followupMessage, setFollowupMessage] = useState('Olá! Já conseguiu preencher o formulário de matrícula? 😊')
   const [savingFollowup, setSavingFollowup] = useState(false)
+  const [inactivityMinutes, setInactivityMinutes] = useState(60)
+  const [inactivityMessage, setInactivityMessage] = useState('Olá! Ainda está por aí? Fico à disposição pra continuar te ajudando 😊')
+  const [savingInactivity, setSavingInactivity] = useState(false)
   // Fluxo 1 — cuidadores e valores dos planos
   const [caregivers, setCaregivers] = useState([])
   const [newCaregiverName, setNewCaregiverName] = useState('')
@@ -145,6 +148,15 @@ export default function SettingsPage() {
       const data = await res.json()
       setFollowupDelay(data.delayMinutes ?? 60)
       setFollowupMessage(data.message ?? '')
+    } catch { /* silencioso */ }
+  }
+
+  const fetchInactivityFollowupConfig = async () => {
+    try {
+      const res = await fetch(`${API_URL}/leads/inactivity-followup/config`)
+      const data = await res.json()
+      setInactivityMinutes(data.minutes ?? 60)
+      setInactivityMessage(data.message ?? '')
     } catch { /* silencioso */ }
   }
 
@@ -287,6 +299,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchDefaultPrompts()
     fetchFollowupConfig()
+    fetchInactivityFollowupConfig()
     fetchCaregivers()
   }, [])
 
@@ -816,6 +829,58 @@ export default function SettingsPage() {
             >
               {savingFollowup ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {savingFollowup ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Card de follow-up de inatividade (Fluxo 1, 2 e 3) */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">Follow-up de inatividade</h2>
+          <p className="text-xs text-gray-500 mb-4">Se o lead ficar sem responder durante o atendimento (Fluxo 1, 2 ou 3), a LIA envia essa mensagem fixa pra retomar o contato.</p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Tempo de espera (minutos)</label>
+              <input
+                type="number"
+                min={1}
+                value={inactivityMinutes}
+                onChange={e => setInactivityMinutes(Number(e.target.value))}
+                className="w-32 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensagem do follow-up</label>
+              <textarea
+                value={inactivityMessage}
+                onChange={e => setInactivityMessage(e.target.value)}
+                rows={3}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700"
+                placeholder="Ex: Olá! Ainda está por aí? Fico à disposição pra continuar te ajudando 😊"
+              />
+            </div>
+
+            <button
+              onClick={async () => {
+                setSavingInactivity(true)
+                try {
+                  await fetch(`${API_URL}/leads/inactivity-followup/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ minutes: inactivityMinutes, message: inactivityMessage }),
+                  })
+                } finally {
+                  setSavingInactivity(false)
+                }
+              }}
+              disabled={savingInactivity || !inactivityMessage.trim() || !inactivityMinutes}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50"
+            >
+              {savingInactivity ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {savingInactivity ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </div>

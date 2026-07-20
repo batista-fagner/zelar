@@ -85,6 +85,11 @@ export class Lead {
   @Column({ name: 'followup_sent_at', nullable: true, type: 'timestamp' })
   followupSentAt: Date | null;
 
+  // Followup de inatividade (fluxo 1-3, durante atendimento) — separado do followup
+  // pós-pagamento acima. Resetado sempre que o lead manda uma mensagem nova.
+  @Column({ name: 'inactivity_followup_sent_at', nullable: true, type: 'timestamp' })
+  inactivityFollowupSentAt: Date | null;
+
   @Column({ nullable: true, type: 'varchar' })
   cpf: string | null;
 

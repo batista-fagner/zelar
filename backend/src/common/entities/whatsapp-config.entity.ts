@@ -52,6 +52,14 @@ export class WhatsappConfig {
   @Column({ name: 'followup_message', nullable: true, type: 'text' })
   followupMessage: string | null;
 
+  // Followup de inatividade — dispara durante o atendimento (fluxo 1, 2 ou 3) quando o
+  // lead some sem responder. Separado do followup acima (que só roda pós-pagamento).
+  @Column({ name: 'inactivity_followup_minutes', nullable: true, type: 'int', default: 60 })
+  inactivityFollowupMinutes: number | null;
+
+  @Column({ name: 'inactivity_followup_message', nullable: true, type: 'text' })
+  inactivityFollowupMessage: string | null;
+
   // Fluxo 1 — valores dos planos em centavos, por complexidade + turno
   // (0 = não configurado, valor omitido nas mensagens). Simples não tem 24h.
   @Column({ name: 'plan_simples_diurno_value', type: 'int', default: 0 })

@@ -37,6 +37,7 @@ export class LeadsService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     setInterval(() => this.runFollowupJob(), 5 * 60 * 1000);
+    setInterval(() => this.runInactivityFollowupJob(), 10 * 60 * 1000);
 
     await this.leadsRepo.query(`
       UPDATE leads l
@@ -101,9 +102,14 @@ export class LeadsService implements OnApplicationBootstrap {
     });
     const saved = await this.messagesRepo.save(msg);
 
+    const updateSet: Record<string, unknown> = { lastMessageAt: new Date(), lastMessageDirection: direction };
+    // Lead voltou a responder — libera o followup de inatividade pra disparar de novo
+    // numa próxima janela de silêncio, em vez de ficar bloqueado pra sempre.
+    if (direction === 'inbound') updateSet.inactivityFollowupSentAt = null;
+
     await this.leadsRepo.createQueryBuilder()
       .update()
-      .set({ lastMessageAt: new Date(), lastMessageDirection: direction })
+      .set(updateSet)
       .where('id = (SELECT lead_id FROM conversations WHERE id = :cId)', { cId: conversationId })
       .execute();
 
@@ -285,6 +291,49 @@ export class LeadsService implements OnApplicationBootstrap {
         this.logger.error(`[FOLLOWUP] Falha para ${lead.phone}: ${err.message}`);
       }
     }
+  }
+
+  // Followup de inatividade — dispara durante o atendimento (fluxo 1, 2 ou 3), quando o
+  // lead some sem responder. Independente do followup pós-pagamento acima.
+  async runInactivityFollowupJob() {
+    if (!this.followupSender) return;
+    const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    if (!config?.inactivityFollowupMinutes || !config?.inactivityFollowupMessage) return;
+
+    const cutoff = new Date(Date.now() - config.inactivityFollowupMinutes * 60 * 1000);
+    const leads = await this.leadsRepo
+      .createQueryBuilder('lead')
+      .where('lead.stage IN (:...stages)', { stages: ['novo_lead', 'em_atendimento'] })
+      .andWhere('lead.active_flow IN (:...flows)', { flows: ['fluxo_1', 'fluxo_2', 'fluxo_3'] })
+      .andWhere('lead.last_message_direction = :dir', { dir: 'outbound' })
+      .andWhere('lead.inactivity_followup_sent_at IS NULL')
+      .andWhere('lead.last_message_at < :cutoff', { cutoff })
+      .getMany();
+
+    for (const lead of leads) {
+      try {
+        await this.followupSender(lead.phone, config.inactivityFollowupMessage);
+        await this.leadsRepo.update(lead.id, { inactivityFollowupSentAt: new Date() });
+        this.logger.log(`[FOLLOWUP-INATIVIDADE] Enviado para ${lead.phone}`);
+      } catch (err) {
+        this.logger.error(`[FOLLOWUP-INATIVIDADE] Falha para ${lead.phone}: ${err.message}`);
+      }
+    }
+  }
+
+  async updateInactivityFollowupConfig(minutes: number, message: string): Promise<void> {
+    const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    if (config) {
+      await this.whatsappConfigRepo.update(config.id, { inactivityFollowupMinutes: minutes, inactivityFollowupMessage: message });
+    }
+  }
+
+  async getInactivityFollowupConfig(): Promise<{ minutes: number; message: string }> {
+    const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    return {
+      minutes: config?.inactivityFollowupMinutes ?? 60,
+      message: config?.inactivityFollowupMessage ?? 'Olá! Ainda está por aí? Fico à disposição pra continuar te ajudando 😊',
+    };
   }
 
   async updateFollowupConfig(delayMinutes: number, message: string): Promise<void> {

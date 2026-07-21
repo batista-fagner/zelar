@@ -19,6 +19,12 @@ const BROADCAST_DELAY_MS = 2000;
 
 const CADASTRO_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc0qktonC3kij2cDiJTIo2bcyd7z6s2FgCGE8dTtMwZKIxoNg/viewform?usp=preview';
 
+const SATISFACTION_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdE3Htn0DT9xvvugeBG1qhjY4B_86v-U8mdSQ8vOBZpVXn0mA/viewform?usp=header';
+
+/** Horas após o cuidador aceitar (acceptedAt) até disparar a pesquisa de satisfação ao cliente. */
+// TEMPORÁRIO PRA TESTE: 3min em vez de 24h — reverter para 24 depois de validar em produção.
+const SATISFACTION_SURVEY_DELAY_HOURS = 3 / 60;
+
 const TURNO_LABEL: Record<string, string> = {
   diurno: 'Diurno', noturno: 'Noturno', '24h': '24h',
 };
@@ -102,6 +108,35 @@ export class CareRequestsService implements OnApplicationBootstrap {
     setInterval(() => this.runTimeoutJob().catch(err =>
       this.logger.error(`[CARE] Timeout job falhou: ${err.message}`),
     ), 5 * 60 * 1000);
+    // TEMPORÁRIO PRA TESTE: 1min em vez de 15min — reverter depois de validar em produção.
+    setInterval(() => this.runSatisfactionSurveyJob().catch(err =>
+      this.logger.error(`[CARE] Satisfaction survey job falhou: ${err.message}`),
+    ), 1 * 60 * 1000);
+  }
+
+  /** Dispara a pesquisa de satisfação ao cliente 24h depois do cuidador aceitar o atendimento. */
+  async runSatisfactionSurveyJob() {
+    const cutoff = new Date(Date.now() - SATISFACTION_SURVEY_DELAY_HOURS * 60 * 60 * 1000);
+    const requests = await this.requestsRepo
+      .createQueryBuilder('r')
+      .where('r.status = :status', { status: 'aceito' })
+      .andWhere('r.satisfaction_survey_sent_at IS NULL')
+      .andWhere('r.accepted_at IS NOT NULL')
+      .andWhere('r.accepted_at < :cutoff', { cutoff })
+      .getMany();
+
+    for (const request of requests) {
+      const msg = `Oi, ${request.summary.clientName.split(' ')[0]}! 💙 Já faz um dia que nosso cuidador está com você, e sua opinião é muito importante pra gente continuar melhorando.\n\nVocê pode avaliar o atendimento respondendo essa pesquisa rapidinha?\n📋 ${SATISFACTION_FORM_URL}`;
+      try {
+        await this.send(request.leadPhone, msg);
+        const { conversation } = await this.leadsService.findOrCreate(request.leadPhone);
+        await this.leadsService.saveMessage(conversation.id, 'outbound', 'system', msg);
+        await this.requestsRepo.update(request.id, { satisfactionSurveySentAt: new Date() });
+        this.logger.log(`[CARE] Pesquisa de satisfação enviada para ${request.leadPhone}`);
+      } catch (err) {
+        this.logger.error(`[CARE] Falha ao enviar pesquisa de satisfação para ${request.leadPhone}: ${err.message}`);
+      }
+    }
   }
 
   private async send(phone: string, text: string): Promise<void> {

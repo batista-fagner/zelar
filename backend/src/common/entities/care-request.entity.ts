@@ -82,6 +82,10 @@ export class CareRequest {
   @Column({ name: 'accepted_at', type: 'timestamp', nullable: true })
   acceptedAt: Date | null;
 
+  // Pesquisa de satisfação enviada ao cliente 24h depois do cuidador aceitar (acceptedAt).
+  @Column({ name: 'satisfaction_survey_sent_at', type: 'timestamp', nullable: true })
+  satisfactionSurveySentAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

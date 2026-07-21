@@ -9,6 +9,9 @@ import { DeletedLead } from '../common/entities/deleted-lead.entity';
 import { Appointment } from '../common/entities/appointment.entity';
 import { WhatsappConfig } from '../common/entities/whatsapp-config.entity';
 
+const COURSE_SURVEY_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdEQ2NYwHmRBzUQ3Zbp9GZvI7wuzHZ4OR-FSPnNmjUww2VfXw/viewform?usp=header';
+const COURSE_SURVEY_DELAY_HOURS = 24;
+
 @Injectable()
 export class LeadsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(LeadsService.name);
@@ -38,6 +41,7 @@ export class LeadsService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     setInterval(() => this.runFollowupJob(), 5 * 60 * 1000);
     setInterval(() => this.runInactivityFollowupJob(), 10 * 60 * 1000);
+    setInterval(() => this.runCourseSurveyJob(), 60 * 60 * 1000);
 
     await this.leadsRepo.query(`
       UPDATE leads l
@@ -146,6 +150,9 @@ export class LeadsService implements OnApplicationBootstrap {
     }
 
     lead.stage = toStage;
+    if (toStage === 'matriculado' && !lead.matriculadoAt) {
+      lead.matriculadoAt = new Date();
+    }
     await this.leadsRepo.save(lead);
 
     await this.historyRepo.save({ leadId, fromStage, toStage, changedBy });
@@ -317,6 +324,33 @@ export class LeadsService implements OnApplicationBootstrap {
         this.logger.log(`[FOLLOWUP-INATIVIDADE] Enviado para ${lead.phone}`);
       } catch (err) {
         this.logger.error(`[FOLLOWUP-INATIVIDADE] Falha para ${lead.phone}: ${err.message}`);
+      }
+    }
+  }
+
+  // Pesquisa de satisfação do curso (fluxo 3) — dispara 24h depois do lead entrar em
+  // 'matriculado', com mensagem personalizada e link próprio do formulário do curso.
+  async runCourseSurveyJob() {
+    if (!this.followupSender) return;
+
+    const cutoff = new Date(Date.now() - COURSE_SURVEY_DELAY_HOURS * 60 * 60 * 1000);
+    const leads = await this.leadsRepo
+      .createQueryBuilder('lead')
+      .where('lead.stage = :stage', { stage: 'matriculado' })
+      .andWhere('lead.course_survey_sent_at IS NULL')
+      .andWhere('lead.matriculado_at IS NOT NULL')
+      .andWhere('lead.matriculado_at < :cutoff', { cutoff })
+      .getMany();
+
+    for (const lead of leads) {
+      const firstName = (lead.name || '').split(' ')[0] || 'tudo bem';
+      const msg = `Oi, ${firstName}! 💙 Já faz um dia que você se matriculou no nosso curso de cuidador(a), e sua opinião é muito importante pra gente continuar melhorando.\n\nVocê pode avaliar sua experiência respondendo essa pesquisa rapidinha?\n📋 ${COURSE_SURVEY_FORM_URL}`;
+      try {
+        await this.followupSender(lead.phone, msg);
+        await this.leadsRepo.update(lead.id, { courseSurveySentAt: new Date() });
+        this.logger.log(`[PESQUISA-CURSO] Enviada para ${lead.phone}`);
+      } catch (err) {
+        this.logger.error(`[PESQUISA-CURSO] Falha para ${lead.phone}: ${err.message}`);
       }
     }
   }

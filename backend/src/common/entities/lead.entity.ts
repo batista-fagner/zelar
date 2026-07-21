@@ -90,6 +90,15 @@ export class Lead {
   @Column({ name: 'inactivity_followup_sent_at', nullable: true, type: 'timestamp' })
   inactivityFollowupSentAt: Date | null;
 
+  // Data em que o lead entrou em 'matriculado' (fluxo 3, curso) — referência para a
+  // pesquisa de satisfação do curso, disparada 24h depois.
+  @Column({ name: 'matriculado_at', nullable: true, type: 'timestamp' })
+  matriculadoAt: Date | null;
+
+  // Pesquisa de satisfação do curso (fluxo 3) enviada 24h depois de matriculado_at.
+  @Column({ name: 'course_survey_sent_at', nullable: true, type: 'timestamp' })
+  courseSurveySentAt: Date | null;
+
   @Column({ nullable: true, type: 'varchar' })
   cpf: string | null;
 

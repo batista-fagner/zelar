@@ -22,8 +22,7 @@ const CADASTRO_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc0qktonC3ki
 const SATISFACTION_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdE3Htn0DT9xvvugeBG1qhjY4B_86v-U8mdSQ8vOBZpVXn0mA/viewform?usp=header';
 
 /** Horas após o cuidador aceitar (acceptedAt) até disparar a pesquisa de satisfação ao cliente. */
-// TEMPORÁRIO PRA TESTE: 3min em vez de 24h — reverter para 24 depois de validar em produção.
-const SATISFACTION_SURVEY_DELAY_HOURS = 3 / 60;
+const SATISFACTION_SURVEY_DELAY_HOURS = 24;
 
 const TURNO_LABEL: Record<string, string> = {
   diurno: 'Diurno', noturno: 'Noturno', '24h': '24h',
@@ -114,10 +113,9 @@ export class CareRequestsService implements OnApplicationBootstrap {
     setInterval(() => this.runTimeoutJob().catch(err =>
       this.logger.error(`[CARE] Timeout job falhou: ${err.message}`),
     ), 5 * 60 * 1000);
-    // TEMPORÁRIO PRA TESTE: 1min em vez de 15min — reverter depois de validar em produção.
     setInterval(() => this.runSatisfactionSurveyJob().catch(err =>
       this.logger.error(`[CARE] Satisfaction survey job falhou: ${err.message}`),
-    ), 1 * 60 * 1000);
+    ), 60 * 60 * 1000);
   }
 
   /** Dispara a pesquisa de satisfação ao cliente 24h depois do cuidador aceitar o atendimento. */

@@ -40,6 +40,12 @@ function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/** Linha de endereço completo (ramo domiciliar) — rua, número e ponto de referência. */
+function buildEnderecoLine(s: CareRequestSummary): string {
+  if (!s.rua) return '';
+  return `\n🏠 Endereço: ${s.rua}, ${s.numero ?? 's/n'}${s.pontoReferencia ? ` — Ref: ${s.pontoReferencia}` : ''}`;
+}
+
 /** Resumo do paciente (ramo domiciliar) pro cuidador saber o que vai encontrar antes de aceitar. */
 function buildPatientSummaryLine(s: CareRequestSummary): string {
   const parts: string[] = [];
@@ -363,12 +369,13 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
     const complexityLabel = complexity.charAt(0).toUpperCase() + complexity.slice(1);
     const valueLine = caregiverValue > 0 ? `\n💰 Valor a receber: ${formatBRL(caregiverValue)}` : '';
+    const enderecoLine = buildEnderecoLine(summary);
     const patientSummary = buildPatientSummaryLine(summary);
     const dutiesSection = dutiesText ? `\n📋 O que você vai fazer:\n${dutiesText}\n` : '';
     const msg = `🩺 *Nova solicitação de atendimento — Zelar*\n\n` +
       `👤 Cliente: ${summary.clientName}\n` +
       `🩹 Tipo de cuidado: ${summary.tipoCuidado}\n` +
-      `📍 Região: ${summary.regiao}\n` +
+      `📍 Região: ${summary.regiao}${enderecoLine}\n` +
       `🗓 Data: ${summary.dataAtendimento}\n` +
       `⏰ Turno: ${TURNO_LABEL[summary.turno] ?? summary.turno}\n` +
       `📊 Complexidade: ${complexityLabel}${valueLine}\n${patientSummary}${dutiesSection}\n` +
@@ -537,14 +544,9 @@ export class CareRequestsService implements OnApplicationBootstrap {
     const caregiverPhone = caregiver.phone.replace(/\D/g, '');
 
     // 1. Confirma ao cuidador com o contato do cliente
-    // Endereço completo (rua/número/ponto de referência) só é revelado aqui, depois do
-    // aceite — no broadcast antes disso só aparece a região, por privacidade do cliente.
-    const enderecoCompleto = s.rua
-      ? `\n🏠 Endereço: ${s.rua}, ${s.numero ?? 's/n'}${s.pontoReferencia ? ` — Ref: ${s.pontoReferencia}` : ''}`
-      : '';
     const caregiverMsg = `Ótimo, o atendimento é seu! 🎉\n\n` +
       `👤 Cliente: ${s.clientName}\n📱 WhatsApp: ${request.leadPhone}\n` +
-      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}${enderecoCompleto}\n` +
+      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}${buildEnderecoLine(s)}\n` +
       `${buildPatientSummaryLine(s)}\n` +
       `Entre em contato com o cliente para combinar os detalhes.`;
     await this.send(caregiverPhone, caregiverMsg).catch(err =>
@@ -606,7 +608,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
     // 6. Notifica a operadora do resultado
     const opMsg = `✅ *Atendimento designado*\n\n🩺 Cuidador(a): ${caregiver.name} (${caregiverPhone})\n` +
-      `👤 Cliente: ${s.clientName} (${request.leadPhone})\n🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}`;
+      `👤 Cliente: ${s.clientName} (${request.leadPhone})\n🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}${buildEnderecoLine(s)}`;
     await this.send(this.operatorPhone(), opMsg).catch(err =>
       this.logger.error(`[CARE] Falha ao notificar operadora: ${err.message}`));
   }
@@ -642,7 +644,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
       const opMsg = `⚠️ *Nenhum cuidador aceitou em ${ACCEPT_TIMEOUT_MINUTES} min*\n\n` +
         `👤 Cliente: ${s.clientName} (${request.leadPhone})\n🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n` +
-        `📍 ${s.regiao}\n\nEntre em contato com o cliente para resolver manualmente.`;
+        `📍 ${s.regiao}${buildEnderecoLine(s)}\n\nEntre em contato com o cliente para resolver manualmente.`;
       await this.send(this.operatorPhone(), opMsg).catch(err =>
         this.logger.error(`[CARE] Falha ao notificar operadora (timeout): ${err.message}`));
 

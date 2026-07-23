@@ -620,7 +620,34 @@ export class EvolutionController implements OnModuleInit {
     // Confirmação de pagamento: cartão → gera link InfinitPay
     if (aiResponse.action === 'aguardar_confirmacao_pagamento' || aiResponse.action === 'send_payment_link') {
       try {
-        const paymentUrl = await this.infinitpayService.createPaymentLink(lead.id);
+        let paymentUrl: string;
+        if (flowKeyForContext === 'fluxo_1') {
+          // Fluxo 1 tem valor variável por plano (complexidade + turno, ou tabela hospitalar)
+          // — gera o link com o preço certo em vez do preço fixo do curso (Fluxo 3).
+          const pending = (lead.aiContext as any)?.careSummaryPending ?? {};
+          const planValueCents = await this.careRequestsService.planValueForPending(pending);
+          if (planValueCents > 0) {
+            const tipoLabel = pending?.tipoCuidado === 'hospitalar' ? 'Hospitalar' : 'Domiciliar';
+            const turnoLabel = pending?.turno ? ` — ${pending.turno}` : '';
+            paymentUrl = await this.infinitpayService.createPaymentLink(
+              lead.id, planValueCents, `Atendimento Zelar — ${tipoLabel}${turnoLabel}`,
+            );
+          } else {
+            this.logger.error(`[InfinitPay] Valor do plano não configurado (fluxo_1, lead ${lead.id}, pending=${JSON.stringify(pending)}) — avisando operador`);
+            const operatorPhones = (this.configService.get<string>('OPERATOR_PHONES') ?? '')
+              .split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
+            if (operatorPhones[0]) {
+              await this.evolutionService.sendTextMessage(operatorPhones[0],
+                `⚠️ Valor do plano não configurado para ${lead.name ?? phone} (complexidade/turno sem preço em Settings) — pagamento por cartão bloqueado, verifique manualmente.`,
+              ).catch(() => {});
+            }
+            await this.evolutionService.sendTextMessage(phone, 'Tive um probleminha ao gerar o link de pagamento. Nossa equipe entrará em contato em breve! 😊');
+            await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', 'Tive um probleminha ao gerar o link de pagamento. Nossa equipe entrará em contato em breve! 😊');
+            return;
+          }
+        } else {
+          paymentUrl = await this.infinitpayService.createPaymentLink(lead.id);
+        }
         const msg = `${aiResponse.reply}\n\n${paymentUrl}`;
         await this.evolutionService.sendTextMessage(phone, msg);
         await this.leadsService.saveMessage(conversation.id, 'outbound', 'ai', msg);

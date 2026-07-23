@@ -13,14 +13,19 @@ export class InfinitpayService {
 
   constructor(private readonly config: ConfigService) {}
 
-  async createPaymentLink(leadId: string): Promise<string> {
+  /**
+   * Gera um link de pagamento dinâmico via API InfinitPay. Por padrão usa o preço/nome
+   * fixos do curso (INFINITPAY_COURSE_PRICE/NAME) — priceCents/description permitem
+   * sobrescrever para planos de valor variável (ex: Fluxo 1, conforme complexidade/turno).
+   */
+  async createPaymentLink(leadId: string, priceCents?: number, description?: string): Promise<string> {
     const serverUrl = this.config.get('SERVER_URL') ?? 'http://localhost:3001';
     const body = {
       handle: this.handle,
       redirect_url: `${serverUrl}/webhooks/infinitpay/redirect`,
       webhook_url: `${serverUrl}/webhooks/infinitpay`,
       order_nsu: leadId,
-      items: [{ quantity: 1, price: this.coursePrice, description: this.courseName }],
+      items: [{ quantity: 1, price: priceCents ?? this.coursePrice, description: description ?? this.courseName }],
     };
 
     const response = await axios.post(`${this.apiBase}/links`, body, {

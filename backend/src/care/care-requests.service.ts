@@ -208,6 +208,19 @@ export class CareRequestsService implements OnApplicationBootstrap {
   }
 
   /**
+   * Valor do plano (centavos) a partir do resumo pendente do lead (lead.aiContext.careSummaryPending)
+   * — usado pelo EvolutionController pra gerar o link InfinitPay dinâmico no Fluxo 1, com o
+   * valor certo do plano (complexidade + turno) em vez do preço fixo do curso.
+   */
+  async planValueForPending(pending: { complexidade?: string | null; turno?: string | null; tipoCuidado?: string | null }): Promise<number> {
+    const complexityRaw = normalizeText(pending?.complexidade ?? '');
+    const complexity: CareComplexity = (['simples', 'medio', 'complexo'].includes(complexityRaw)
+      ? complexityRaw : 'medio') as CareComplexity;
+    const { planValue } = await this.planValueFor(complexity, pending?.turno ?? '', pending?.tipoCuidado ?? undefined);
+    return planValue;
+  }
+
+  /**
    * Cancela o atendimento aceito de um lead (Fluxo 1) — acionado pelo operador no Kanban.
    * Muda o status para 'cancelado' (libera o cuidador nas próximas checagens de
    * disponibilidade) e remove o evento de atendimento da agenda. NÃO toca nos eventos

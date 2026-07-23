@@ -95,9 +95,21 @@ RESPONDA SEMPRE em JSON com este formato exato (sem markdown, sem código, só o
     "name": "nome se coletado ou null",
     "cpf": "CPF do cliente se coletado ou null",
     "qualificationScore": 0,
-    "qualificationStep": 0
+    "qualificationStep": 0,
+    "tipoCuidado": "domiciliar|hospitalar ou null (só fluxo 1)",
+    "regiao": "bairro e cidade ou null (só fluxo 1)",
+    "dataAtendimento": "DD/MM/AAAA ou null (só fluxo 1)",
+    "turno": "diurno|noturno|24h ou null (só fluxo 1)",
+    "complexidade": "simples|medio|complexo ou null (só fluxo 1)",
+    "idade": "idade ou null (só fluxo 1)",
+    "locomocao": "resposta sobre locomoção ou null (só fluxo 1)",
+    "banho": "resposta sobre banho ou null (só fluxo 1)",
+    "medicacao": "resposta sobre medicação ou null (só fluxo 1)",
+    "diagnostico": "resposta sobre diagnóstico ou null (só fluxo 1)"
   }
 }
+
+IMPORTANTE — CAMPO "fields": inclua SEMPRE TODAS as chaves acima em TODAS as respostas (mesmo as ainda não coletadas, como null), independente do fluxo. Nunca omita uma chave do JSON. Assim que o campo já dito pela pessoa aparecer numa mensagem, preencha-o com o valor coletado (e repita o valor já coletado nas respostas seguintes, nunca "esqueça" um campo já preenchido voltando pra null). tipoCuidado/regiao/dataAtendimento/turno/complexidade/idade/locomocao/banho/medicacao/diagnostico só se aplicam ao fluxo 1 — nos demais fluxos, mantenha null.
 
 CAMPO switchFlow: use null normalmente. Só preencha com "fluxo_3" se o contato decidir migrar para o curso (ex.: no fluxo 2, quando não tem certificado e aceita conhecer o curso).`;
 

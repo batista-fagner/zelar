@@ -39,12 +39,6 @@ function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-/** Linha de endereço completo (ramo domiciliar) — rua, número e ponto de referência. */
-function buildEnderecoLine(s: CareRequestSummary): string {
-  if (!s.rua) return '';
-  return `\n🏠 Endereço: ${s.rua}, ${s.numero ?? 's/n'}${s.pontoReferencia ? ` — Ref: ${s.pontoReferencia}` : ''}`;
-}
-
 /** Resumo do paciente (ramo domiciliar) pro cuidador saber o que vai encontrar antes de aceitar. */
 function buildPatientSummaryLine(s: CareRequestSummary): string {
   const parts: string[] = [];
@@ -281,11 +275,8 @@ export class CareRequestsService implements OnApplicationBootstrap {
       ? complexityRaw : 'medio') as CareComplexity;
     const turnoValid = ['diurno', 'noturno', '24h'].includes(pending?.turno);
     const dataIsPast = isPastDate(pending?.dataAtendimento ?? '');
-    // Rua/número/ponto de referência só fazem sentido no ramo domiciliar (hospitalar é atendido no hospital).
-    const enderecoIncompleto = pending?.tipoCuidado === 'domiciliar'
-      && (!pending?.rua || !pending?.numero || !pending?.pontoReferencia);
 
-    if (!pending?.clientName || !pending?.tipoCuidado || !pending?.regiao || !pending?.dataAtendimento || !turnoValid || dataIsPast || enderecoIncompleto) {
+    if (!pending?.clientName || !pending?.tipoCuidado || !pending?.regiao || !pending?.dataAtendimento || !turnoValid || dataIsPast) {
       const motivo = dataIsPast ? ' (data do atendimento já passou)' : '';
       this.logger.warn(`[CARE] Pagamento confirmado para lead ${lead.id} mas dados do atendimento incompletos${motivo} — broadcast abortado`);
       await this.send(this.operatorPhone(),
@@ -308,9 +299,6 @@ export class CareRequestsService implements OnApplicationBootstrap {
       clientName: pending.clientName,
       tipoCuidado: pending.tipoCuidado,
       regiao: pending.regiao,
-      rua: pending.rua ?? null,
-      numero: pending.numero ?? null,
-      pontoReferencia: pending.pontoReferencia ?? null,
       dataAtendimento: pending.dataAtendimento,
       turno: pending.turno,
       idade: pending.idade ?? null,
@@ -367,13 +355,12 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
     const complexityLabel = complexity.charAt(0).toUpperCase() + complexity.slice(1);
     const valueLine = caregiverValue > 0 ? `\n💰 Valor a receber: ${formatBRL(caregiverValue)}` : '';
-    const enderecoLine = buildEnderecoLine(summary);
     const patientSummary = buildPatientSummaryLine(summary);
     const dutiesSection = dutiesText ? `\n📋 O que você vai fazer:\n${dutiesText}\n` : '';
     const msg = `🩺 *Nova solicitação de atendimento — Zelar*\n\n` +
       `👤 Cliente: ${summary.clientName}\n` +
       `🩹 Tipo de cuidado: ${summary.tipoCuidado}\n` +
-      `📍 Região: ${summary.regiao}${enderecoLine}\n` +
+      `📍 Região: ${summary.regiao}\n` +
       `🗓 Data: ${summary.dataAtendimento}\n` +
       `⏰ Turno: ${TURNO_LABEL[summary.turno] ?? summary.turno}\n` +
       `📊 Complexidade: ${complexityLabel}${valueLine}\n${patientSummary}${dutiesSection}\n` +
@@ -544,7 +531,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
     // 1. Confirma ao cuidador com o contato do cliente
     const caregiverMsg = `Ótimo, o atendimento é seu! 🎉\n\n` +
       `👤 Cliente: ${s.clientName}\n📱 WhatsApp: ${request.leadPhone}\n` +
-      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}${buildEnderecoLine(s)}\n` +
+      `🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}\n` +
       `${buildPatientSummaryLine(s)}\n` +
       `Entre em contato com o cliente para combinar os detalhes.`;
     await this.send(caregiverPhone, caregiverMsg).catch(err =>
@@ -606,7 +593,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
     // 6. Notifica a operadora do resultado
     const opMsg = `✅ *Atendimento designado*\n\n🩺 Cuidador(a): ${caregiver.name} (${caregiverPhone})\n` +
-      `👤 Cliente: ${s.clientName} (${request.leadPhone})\n🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}${buildEnderecoLine(s)}`;
+      `👤 Cliente: ${s.clientName} (${request.leadPhone})\n🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n📍 ${s.regiao}`;
     await this.send(this.operatorPhone(), opMsg).catch(err =>
       this.logger.error(`[CARE] Falha ao notificar operadora: ${err.message}`));
   }
@@ -642,7 +629,7 @@ export class CareRequestsService implements OnApplicationBootstrap {
 
       const opMsg = `⚠️ *Nenhum cuidador aceitou em ${ACCEPT_TIMEOUT_MINUTES} min*\n\n` +
         `👤 Cliente: ${s.clientName} (${request.leadPhone})\n🗓 ${s.dataAtendimento} — ${TURNO_LABEL[s.turno] ?? s.turno}\n` +
-        `📍 ${s.regiao}${buildEnderecoLine(s)}\n\nEntre em contato com o cliente para resolver manualmente.`;
+        `📍 ${s.regiao}\n\nEntre em contato com o cliente para resolver manualmente.`;
       await this.send(this.operatorPhone(), opMsg).catch(err =>
         this.logger.error(`[CARE] Falha ao notificar operadora (timeout): ${err.message}`));
 

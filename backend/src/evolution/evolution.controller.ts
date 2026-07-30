@@ -196,6 +196,12 @@ export class EvolutionController implements OnModuleInit {
     return { ok: true };
   }
 
+  private operatorPhone(): string {
+    const phones = (this.configService.get<string>('OPERATOR_PHONES') ?? '')
+      .split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
+    return phones[0] ?? '5527997885752';
+  }
+
   private async sendFallback(phone: string) {
     try {
       const fallbackText = 'Desculpa, tive uma instabilidade aqui. Pode repetir a última mensagem? 😊';
@@ -606,6 +612,13 @@ export class EvolutionController implements OnModuleInit {
         const isPaymentMedia = aiResponse.mediaName.startsWith('pix-');
         if (isPaymentMedia) {
           await this.leadsService.toggleAi(lead.id, false);
+
+          // Notifica o operador para acompanhar a confirmação manual do PIX
+          const clientName = (lead.name ?? 'Sem nome').trim() || 'Sem nome';
+          const notifyMsg = `💰 *PIX solicitado*\n\n👤 Cliente: ${clientName}\n📱 WhatsApp: ${phone}\n\nAguardando comprovante — confirme o pagamento manualmente no card quando receber.`;
+          this.evolutionService.sendTextMessage(this.operatorPhone(), notifyMsg).catch(err =>
+            this.logger.error(`[PIX] Falha ao notificar operador: ${err.message}`),
+          );
         }
         aiResponse.reply = ''; // Limpa para não enviar em duplicado
       } else {
@@ -975,9 +988,8 @@ export class EvolutionController implements OnModuleInit {
     }
 
     // Notifica o operador para emitir o boleto manualmente
-    const operadorPhone = '5527996972230';
     const notifyMsg = `🧾 *Boleto solicitado*\n\n👤 Cliente: ${clientName}\n🪪 CPF: ${clientCpf}\n📱 WhatsApp: ${phone}\n\nEmita o boleto e envie diretamente para o cliente.`;
-    this.evolutionService.sendTextMessage(operadorPhone, notifyMsg).catch(err =>
+    this.evolutionService.sendTextMessage(this.operatorPhone(), notifyMsg).catch(err =>
       this.logger.error(`[BOLETO] Falha ao notificar operador: ${err.message}`),
     );
 

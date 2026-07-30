@@ -243,7 +243,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-6">
             {[
               { icon: '🛡️', title: 'Cuidadores capacitados', desc: 'Todos os cuidadores passam por formação específica antes de atender.' },
-              { icon: '⚡', title: 'Atendimento imediato', desc: 'Nossa IA responde no WhatsApp 24h — sem espera, sem burocracia.' },
+              { icon: '⚡', title: 'Atendimento imediato', desc: 'Respondemos no WhatsApp sem espera e sem burocracia.' },
               { icon: '📋', title: 'Gestão transparente', desc: 'Contrato claro, sem vínculo empregatício direto e com suporte da equipe.' },
               { icon: '🌱', title: 'Crescimento contínuo', desc: 'Cuidadores têm acesso a cursos e novas oportunidades na rede Zelar.' },
             ].map(item => (

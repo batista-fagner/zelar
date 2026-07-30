@@ -264,7 +264,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto">
           <h2 className="text-4xl font-extrabold mb-4">Pronto para começar?</h2>
           <p className="text-zelar-brown-100 text-lg mb-10 leading-relaxed">
-            Fale agora com a Lícia, nossa assistente virtual, e dê o primeiro passo rumo a um cuidado de qualidade.
+            Fale conosco e dê o primeiro passo rumo a um cuidado de qualidade.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a

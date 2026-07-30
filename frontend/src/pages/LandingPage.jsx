@@ -2,6 +2,7 @@ import zelarLogoHorizontal from '../assets/zelar-logo-horizontal.jpg'
 import zelarLogo from '../assets/zelar-logo.jpg'
 
 const WHATSAPP_NUMBER = '5527999234193'
+const WHATSAPP_NUMBER_ADVOGADA = '5527997885752'
 
 const waMensagemFamilia  = encodeURIComponent('Olá! Preciso contratar um cuidador.')
 const waMensagemTrabalho = encodeURIComponent('Olá! Quero trabalhar como cuidador(a) pela Zelar.')
@@ -11,7 +12,7 @@ const waMensagemJuridico = encodeURIComponent('Olá! Preciso de suporte jurídic
 const waLinkFamilia  = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemFamilia}`
 const waLinkTrabalho = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemTrabalho}`
 const waLinkCurso    = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemCurso}`
-const waLinkJuridico = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemJuridico}`
+const waLinkJuridico = `https://wa.me/${WHATSAPP_NUMBER_ADVOGADA}?text=${waMensagemJuridico}`
 
 export default function LandingPage() {
   return (
@@ -154,7 +155,7 @@ export default function LandingPage() {
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Curso de Cuidador</h3>
               <p className="text-gray-500 mb-6 leading-relaxed">
                 Capacitação completa pra você atuar com segurança, técnica e propósito
-                e sair na frente pras vagas da rede Zelar.
+                e sair na frente para as vagas da rede Zelar.
               </p>
               <ul className="space-y-2 mb-8">
                 {['Curso completo de capacitação', 'Certificado de conclusão', 'Pagamento via PIX, cartão ou boleto', 'Prioridade nas vagas da rede Zelar'].map(item => (
@@ -200,7 +201,7 @@ export default function LandingPage() {
                 className="flex items-center justify-center gap-2 w-full bg-zelar-purple hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-zelar-purple/30"
               >
                 <WhatsAppIcon />
-                Falar com a equipe
+                Falar com a advogada
               </a>
             </div>
           </div>

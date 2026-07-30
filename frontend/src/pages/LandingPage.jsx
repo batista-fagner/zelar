@@ -1,10 +1,14 @@
 const WHATSAPP_NUMBER = '5527996972230'
 
-const waMensagemFamilia = encodeURIComponent('Olá! Preciso contratar um cuidador.')
-const waMensagemCuidador = encodeURIComponent('Olá! Tenho interesse em me tornar cuidador pela Zelar.')
+const waMensagemFamilia  = encodeURIComponent('Olá! Preciso contratar um cuidador.')
+const waMensagemTrabalho = encodeURIComponent('Olá! Quero trabalhar como cuidador(a) pela Zelar.')
+const waMensagemCurso    = encodeURIComponent('Olá! Quero fazer o curso de cuidador(a).')
+const waMensagemJuridico = encodeURIComponent('Olá! Preciso de suporte jurídico previdenciário.')
 
 const waLinkFamilia  = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemFamilia}`
-const waLinkCuidador = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemCuidador}`
+const waLinkTrabalho = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemTrabalho}`
+const waLinkCurso    = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemCurso}`
+const waLinkJuridico = `https://wa.me/${WHATSAPP_NUMBER}?text=${waMensagemJuridico}`
 
 export default function LandingPage() {
   return (
@@ -50,7 +54,7 @@ export default function LandingPage() {
               Preciso de um Cuidador
             </a>
             <a
-              href={waLinkCuidador}
+              href={waLinkTrabalho}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-bold px-8 py-4 rounded-2xl text-base border-2 border-gray-200 transition"
@@ -62,7 +66,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── DOIS SERVIÇOS ── */}
+      {/* ── SERVIÇOS ── */}
       <section className="py-24 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
@@ -71,18 +75,18 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Card Família */}
+            {/* Card Família — Fluxo 1 */}
             <div className="group relative bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-3xl p-8 hover:shadow-xl hover:shadow-emerald-100 transition-all duration-300">
               <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-emerald-200">
                 🏠
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Contratar Cuidador</h3>
               <p className="text-gray-500 mb-6 leading-relaxed">
-                Cuidadores capacitados para auxiliar idosos, adultos, crianças e gestantes —
-                no conforto da sua casa ou durante internações hospitalares.
+                Cuidadores capacitados para atendimento domiciliar ou hospitalar de idosos, adultos,
+                crianças e gestantes. Nossa equipe entende sua necessidade e indica o cuidador ideal.
               </p>
               <ul className="space-y-2 mb-8">
-                {['Higiene pessoal e alimentação', 'Companhia e mobilidade', 'Acompanhamento hospitalar', 'Apoio na gestação e puerpério'].map(item => (
+                {['Atendimento domiciliar e hospitalar', 'Triagem e seleção do cuidador', 'Acompanhamento da equipe Zelar', 'Pagamento facilitado (PIX, cartão ou boleto)'].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
                     <span className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                     {item}
@@ -100,18 +104,18 @@ export default function LandingPage() {
               </a>
             </div>
 
-            {/* Card Cuidador */}
+            {/* Card Trabalhar como Cuidador — Fluxo 2 */}
             <div className="group relative bg-gradient-to-br from-slate-50 to-gray-50 border border-gray-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300">
               <div className="w-14 h-14 bg-gray-800 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-gray-200">
-                🎓
+                🤝
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Quero ser Cuidador</h3>
               <p className="text-gray-500 mb-6 leading-relaxed">
-                Capacite-se com nosso curso livre e faça parte da rede Zelar de cuidadores —
-                atuando com propósito, segurança e renda estável.
+                Já tem certificado de cuidador? Envie seu currículo e entre pra rede Zelar.
+                Ainda não tem? A gente te encaminha direto pro nosso curso de capacitação.
               </p>
               <ul className="space-y-2 mb-8">
-                {['Curso de capacitação profissional', 'Certificado de conclusão', 'Acesso a oportunidades de trabalho', 'Suporte da equipe Zelar'].map(item => (
+                {['Cadastro rápido pelo WhatsApp', 'Envio de currículo (se já certificado)', 'Encaminhamento pro curso (se ainda não tem)', 'Acesso a oportunidades de trabalho'].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
                     <span className="w-5 h-5 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                     {item}
@@ -119,13 +123,71 @@ export default function LandingPage() {
                 ))}
               </ul>
               <a
-                href={waLinkCuidador}
+                href={waLinkTrabalho}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3.5 rounded-xl transition"
               >
                 <WhatsAppIcon />
+                Quero trabalhar
+              </a>
+            </div>
+
+            {/* Card Curso de Cuidador — Fluxo 3 */}
+            <div className="group relative bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-3xl p-8 hover:shadow-xl hover:shadow-amber-100 transition-all duration-300">
+              <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-amber-200">
+                🎓
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Curso de Cuidador</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Capacitação completa pra você atuar com segurança, técnica e propósito —
+                e sair na frente pras vagas da rede Zelar.
+              </p>
+              <ul className="space-y-2 mb-8">
+                {['Curso completo de capacitação', 'Certificado de conclusão', 'Pagamento via PIX, cartão ou boleto', 'Prioridade nas vagas da rede Zelar'].map(item => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="w-5 h-5 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={waLinkCurso}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-amber-200"
+              >
+                <WhatsAppIcon />
                 Quero me capacitar
+              </a>
+            </div>
+
+            {/* Card Jurídico Previdenciário — Fluxo 4 */}
+            <div className="group relative bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-100 rounded-3xl p-8 hover:shadow-xl hover:shadow-sky-100 transition-all duration-300">
+              <div className="w-14 h-14 bg-sky-700 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-sky-200">
+                ⚖️
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Suporte Jurídico Previdenciário</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Orientação sobre aposentadoria, benefícios do INSS e direitos previdenciários,
+                com encaminhamento pra advogada parceira especializada.
+              </p>
+              <ul className="space-y-2 mb-8">
+                {['Análise do seu caso', 'Orientação sobre benefícios do INSS', 'Encaminhamento pra advogada especializada', 'Atendimento inicial sem compromisso'].map(item => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="w-5 h-5 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={waLinkJuridico}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-sky-200"
+              >
+                <WhatsAppIcon />
+                Falar com a equipe
               </a>
             </div>
           </div>
@@ -186,7 +248,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto">
           <h2 className="text-4xl font-extrabold mb-4">Pronto para começar?</h2>
           <p className="text-emerald-100 text-lg mb-10 leading-relaxed">
-            Fale agora com a Clara, nossa assistente virtual, e dê o primeiro passo rumo a um cuidado de qualidade.
+            Fale agora com a Lícia, nossa assistente virtual, e dê o primeiro passo rumo a um cuidado de qualidade.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
@@ -199,7 +261,7 @@ export default function LandingPage() {
               Preciso de um Cuidador
             </a>
             <a
-              href={waLinkCuidador}
+              href={waLinkTrabalho}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-8 py-4 rounded-2xl text-base border-2 border-emerald-400 transition"

@@ -218,14 +218,11 @@ export default function LandingPage() {
             {[
               { step: '01', icon: '💬', title: 'Fale com a gente', desc: 'Mande uma mensagem no WhatsApp. A Zelar te atende na hora e entende o que você precisa.' },
               { step: '02', icon: '🤝', title: 'Avaliação gratuita', desc: 'Agendamos uma conversa pra entender a situação e encontrar o cuidador ideal.' },
-              { step: '03', icon: null, title: 'Cuidado em ação', desc: 'O cuidador é apresentado à família e o atendimento começa com acompanhamento da Zelar.' },
+              { step: '03', icon: '❤️', title: 'Cuidado em ação', desc: 'O cuidador é apresentado à família e o atendimento começa com acompanhamento da Zelar.' },
             ].map(item => (
               <div key={item.step} className="bg-white rounded-2xl p-7 shadow-sm border border-zelar-brown-100 text-center">
                 <span className="text-xs font-bold text-zelar-brown-400 tracking-widest">{item.step}</span>
-                {item.icon
-                  ? <div className="text-4xl my-3">{item.icon}</div>
-                  : <img src={zelarLogo} alt="Zelar" className="w-10 h-10 mx-auto my-3 object-contain rounded" />
-                }
+                <div className="text-4xl my-3">{item.icon}</div>
                 <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
               </div>

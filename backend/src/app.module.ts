@@ -12,6 +12,8 @@ import { Appointment } from './common/entities/appointment.entity';
 import { DeletedLead } from './common/entities/deleted-lead.entity';
 import { Caregiver } from './common/entities/caregiver.entity';
 import { CareRequest } from './common/entities/care-request.entity';
+import { User } from './common/entities/user.entity';
+import { AuthModule } from './auth/auth.module';
 import { EvolutionModule } from './evolution/evolution.module';
 import { CareModule } from './care/care.module';
 import { LeadsModule } from './leads/leads.module';
@@ -30,7 +32,7 @@ import { InfinitpayModule } from './infinitpay/infinitpay.module';
         type: 'postgres',
         url: config.get('SUPABASE_DATABASE_URL'),
         ssl: { rejectUnauthorized: false },
-        entities: [Lead, Conversation, Message, LeadStageHistory, Campaign, WhatsappConfig, MediaFile, Appointment, DeletedLead, Caregiver, CareRequest],
+        entities: [Lead, Conversation, Message, LeadStageHistory, Campaign, WhatsappConfig, MediaFile, Appointment, DeletedLead, Caregiver, CareRequest, User],
         synchronize: true,
         logging: false,
         pool: {
@@ -41,6 +43,7 @@ import { InfinitpayModule } from './infinitpay/infinitpay.module';
         },
       }),
     }),
+    AuthModule,
     EvolutionModule,
     LeadsModule,
     CareModule,

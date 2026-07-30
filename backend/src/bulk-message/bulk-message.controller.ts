@@ -1,6 +1,8 @@
-import { Controller, Post, Get, Body, Param, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, BadRequestException, NotFoundException, UseGuards } from '@nestjs/common';
 import { BulkMessageService } from './bulk-message.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('bulk-message')
 export class BulkMessageController {
   constructor(private readonly bulkMessageService: BulkMessageService) {}

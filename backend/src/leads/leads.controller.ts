@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Delete, Body, Query, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Delete, Body, Query, Inject, forwardRef, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { LeadsService } from './leads.service';
@@ -8,7 +8,9 @@ import { WhatsappConfigService } from '../evolution/whatsapp-config.service';
 import { AiService } from '../ai/ai.service';
 import { CareRequestsService } from '../care/care-requests.service';
 import { CaregiversService } from '../care/caregivers.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('leads')
 export class LeadsController {
   constructor(

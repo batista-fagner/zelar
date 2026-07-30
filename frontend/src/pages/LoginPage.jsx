@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Lock, Mail, Eye, EyeOff, Heart } from 'lucide-react'
+import { setToken } from '../services/authHttp'
 
-const DEMO_EMAIL = 'demo@zelar.com'
-const DEMO_PASSWORD = 'demo123'
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('')
@@ -11,25 +11,29 @@ export default function LoginPage({ onLogin }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    setTimeout(() => {
-      if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-        onLogin()
-      } else {
-        setError('E-mail ou senha incorretos.')
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data?.message || 'E-mail ou senha incorretos.')
         setLoading(false)
+        return
       }
-    }, 800)
-  }
-
-  function fillDemo() {
-    setEmail(DEMO_EMAIL)
-    setPassword(DEMO_PASSWORD)
-    setError('')
+      setToken(data.accessToken)
+      onLogin()
+    } catch (err) {
+      setError('Não foi possível conectar ao servidor. Tente novamente.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -107,23 +111,6 @@ export default function LoginPage({ onLogin }) {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
-
-          {/* Demo hint */}
-          <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">Credenciais de demonstração</p>
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-blue-600 space-y-0.5">
-                <p>E-mail: <span className="font-mono font-medium">{DEMO_EMAIL}</span></p>
-                <p>Senha: <span className="font-mono font-medium">{DEMO_PASSWORD}</span></p>
-              </div>
-              <button
-                onClick={fillDemo}
-                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition"
-              >
-                Preencher
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { getToken, clearToken, setUnauthorizedHandler } from './services/authHttp'
 import LoginPage from './pages/LoginPage'
 import KanbanPage from './pages/KanbanPage'
 import BulkMessagePage from './pages/BulkMessagePage'
@@ -13,7 +14,16 @@ import LandingPage from './pages/LandingPage'
 import Layout from './components/Layout'
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(() => !!getToken())
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => setLoggedIn(false))
+  }, [])
+
+  function handleLogout() {
+    clearToken()
+    setLoggedIn(false)
+  }
 
   return (
     <BrowserRouter>
@@ -24,7 +34,7 @@ export default function App() {
           element={!loggedIn ? <LoginPage onLogin={() => setLoggedIn(true)} /> : null}
         />
         <Route
-          element={loggedIn ? <Layout onLogout={() => setLoggedIn(false)} /> : <LoginPage onLogin={() => setLoggedIn(true)} />}
+          element={loggedIn ? <Layout onLogout={handleLogout} /> : <LoginPage onLogin={() => setLoggedIn(true)} />}
         >
           <Route path="/" element={<KanbanPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />

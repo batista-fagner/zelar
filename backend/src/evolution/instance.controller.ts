@@ -1,8 +1,10 @@
-import { Controller, Post, Get, Delete, Body, Patch } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Patch, UseGuards } from '@nestjs/common';
 import { UazapiProvider } from './providers/uazapi.provider';
 import { WhatsappConfigService } from './whatsapp-config.service';
 import { AiService } from '../ai/ai.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('instance')
 export class InstanceController {
   constructor(

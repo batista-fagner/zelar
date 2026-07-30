@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Res, Logger, OnModuleInit } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Res, Logger, OnModuleInit, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
@@ -17,6 +17,7 @@ import { AppointmentsService } from '../appointments/appointments.service';
 import { InfinitpayService } from '../infinitpay/infinitpay.service';
 import { CaregiversService } from '../care/caregivers.service';
 import { CareRequestsService } from '../care/care-requests.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('webhooks')
 export class EvolutionController implements OnModuleInit {
@@ -901,6 +902,7 @@ export class EvolutionController implements OnModuleInit {
     this.leadsGateway.emitLeadUpdated(finalLead);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('manual')
   async sendManual(@Body() body: { phone: string; text: string }) {
     const { lead, conversation } = await this.leadsService.findOrCreate(body.phone);

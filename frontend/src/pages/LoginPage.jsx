@@ -38,7 +38,7 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-zelar-cream flex items-center justify-center p-4">
       <div className="w-full max-w-md">
 
         {/* Logo / Brand */}
@@ -65,7 +65,7 @@ export default function LoginPage({ onLogin }) {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zelar-brown-400 focus:border-transparent transition"
                 />
               </div>
             </div>
@@ -81,7 +81,7 @@ export default function LoginPage({ onLogin }) {
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zelar-brown-400 focus:border-transparent transition"
                 />
                 <button
                   type="button"
@@ -104,7 +104,7 @@ export default function LoginPage({ onLogin }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-xl transition text-sm"
+              className="w-full bg-zelar-brown hover:bg-zelar-brown-800 disabled:bg-zelar-brown-400 text-white font-semibold py-3 rounded-xl transition text-sm"
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </button>

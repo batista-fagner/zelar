@@ -20,7 +20,7 @@ export default function Layout({ onLogout }) {
   const isActive = (path) => location.pathname === path
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-zelar-cream">
       {/* Sidebar */}
       <aside className={`${
         collapsed ? 'w-16' : 'w-56'
@@ -52,7 +52,7 @@ export default function Layout({ onLogout }) {
                 to={item.path}
                 className={`flex items-center gap-3 px-3 py-2 rounded transition ${
                   isActive(item.path)
-                    ? 'bg-teal-700 text-white'
+                    ? 'bg-zelar-brown text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
                 title={collapsed ? item.label : ''}
@@ -70,7 +70,7 @@ export default function Layout({ onLogout }) {
             to="/alert-rules"
             className={`flex items-center gap-3 px-3 py-2 rounded transition ${
               location.pathname === '/alert-rules'
-                ? 'bg-teal-700 text-white'
+                ? 'bg-zelar-brown text-white'
                 : 'text-gray-500 hover:bg-gray-100'
             }`}
             title={collapsed ? 'Regras de Alertas' : ''}

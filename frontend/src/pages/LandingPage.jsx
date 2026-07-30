@@ -15,29 +15,29 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white font-sans">
 
       {/* ── NAVBAR ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-emerald-100 px-6 py-4 flex items-center justify-between">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-zelar-brown-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-zelar-brown rounded-lg flex items-center justify-center">
             <span className="text-white text-sm font-bold">Z</span>
           </div>
           <span className="font-bold text-gray-800 text-lg tracking-tight">Zelar</span>
         </div>
-        <span className="text-emerald-700 text-sm font-semibold">Cuidado com quem você ama</span>
+        <span className="text-zelar-brown-700 text-sm font-semibold">Cuidado com quem você ama</span>
       </nav>
 
       {/* ── HERO ── */}
-      <section className="pt-32 pb-24 px-6 bg-gradient-to-br from-emerald-50 via-white to-teal-50 relative overflow-hidden">
+      <section className="pt-32 pb-24 px-6 bg-zelar-cream relative overflow-hidden">
         {/* Decorative circles */}
-        <div className="absolute top-10 right-10 w-72 h-72 bg-emerald-100 rounded-full opacity-40 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-56 h-56 bg-teal-100 rounded-full opacity-40 blur-3xl" />
+        <div className="absolute top-10 right-10 w-72 h-72 bg-zelar-sage/30 rounded-full opacity-40 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-56 h-56 bg-zelar-blue/20 rounded-full opacity-40 blur-3xl" />
 
         <div className="max-w-4xl mx-auto text-center relative">
-          <span className="inline-block bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">
+          <span className="inline-block bg-zelar-brown-100 text-zelar-brown-700 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">
             Cuidado profissional com quem você ama
           </span>
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
             Quem cuida de você,<br />
-            <span className="text-emerald-600">merece o melhor.</span>
+            <span className="text-zelar-brown">merece o melhor.</span>
           </h1>
           <p className="text-lg text-gray-500 max-w-xl mx-auto mb-10 leading-relaxed">
             A Zelar conecta famílias a cuidadores capacitados para atendimento domiciliar e hospitalar —
@@ -48,7 +48,7 @@ export default function LandingPage() {
               href={waLinkFamilia}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg shadow-emerald-200 transition"
+              className="flex items-center gap-2 bg-zelar-brown hover:bg-zelar-brown-800 text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg shadow-zelar-brown-200 transition"
             >
               <WhatsAppIcon />
               Preciso de um Cuidador
@@ -59,7 +59,7 @@ export default function LandingPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-bold px-8 py-4 rounded-2xl text-base border-2 border-gray-200 transition"
             >
-              <WhatsAppIcon color="#16a34a" />
+              <WhatsAppIcon color="#695e4a" />
               Quero ser Cuidador
             </a>
           </div>
@@ -75,9 +75,9 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Card Família — Fluxo 1 */}
-            <div className="group relative bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-3xl p-8 hover:shadow-xl hover:shadow-emerald-100 transition-all duration-300">
-              <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-emerald-200">
+            {/* Card Família — Fluxo 1 (verde-sálvia) */}
+            <div className="group relative bg-zelar-sage/10 border border-zelar-sage/30 rounded-3xl p-8 hover:shadow-xl hover:shadow-zelar-sage/20 transition-all duration-300">
+              <div className="w-14 h-14 bg-zelar-sage rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-zelar-sage/30">
                 🏠
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Contratar Cuidador</h3>
@@ -88,7 +88,7 @@ export default function LandingPage() {
               <ul className="space-y-2 mb-8">
                 {['Atendimento domiciliar e hospitalar', 'Triagem e seleção do cuidador', 'Acompanhamento da equipe Zelar', 'Pagamento facilitado (PIX, cartão ou boleto)'].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                    <span className="w-5 h-5 bg-zelar-sage/20 text-zelar-sage rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                     {item}
                   </li>
                 ))}
@@ -97,16 +97,16 @@ export default function LandingPage() {
                 href={waLinkFamilia}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-emerald-200"
+                className="flex items-center justify-center gap-2 w-full bg-zelar-sage hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-zelar-sage/30"
               >
                 <WhatsAppIcon />
                 Solicitar agora
               </a>
             </div>
 
-            {/* Card Trabalhar como Cuidador — Fluxo 2 */}
-            <div className="group relative bg-gradient-to-br from-slate-50 to-gray-50 border border-gray-200 rounded-3xl p-8 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300">
-              <div className="w-14 h-14 bg-gray-800 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-gray-200">
+            {/* Card Trabalhar como Cuidador — Fluxo 2 (azul acinzentado) */}
+            <div className="group relative bg-zelar-blue/10 border border-zelar-blue/30 rounded-3xl p-8 hover:shadow-xl hover:shadow-zelar-blue/20 transition-all duration-300">
+              <div className="w-14 h-14 bg-zelar-blue rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-zelar-blue/30">
                 🤝
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Quero ser Cuidador</h3>
@@ -117,7 +117,7 @@ export default function LandingPage() {
               <ul className="space-y-2 mb-8">
                 {['Cadastro rápido pelo WhatsApp', 'Envio de currículo (se já certificado)', 'Encaminhamento pro curso (se ainda não tem)', 'Acesso a oportunidades de trabalho'].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-5 h-5 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                    <span className="w-5 h-5 bg-zelar-blue/20 text-zelar-blue rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                     {item}
                   </li>
                 ))}
@@ -126,16 +126,16 @@ export default function LandingPage() {
                 href={waLinkTrabalho}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3.5 rounded-xl transition"
+                className="flex items-center justify-center gap-2 w-full bg-zelar-blue hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-zelar-blue/30"
               >
                 <WhatsAppIcon />
                 Quero trabalhar
               </a>
             </div>
 
-            {/* Card Curso de Cuidador — Fluxo 3 */}
-            <div className="group relative bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-3xl p-8 hover:shadow-xl hover:shadow-amber-100 transition-all duration-300">
-              <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-amber-200">
+            {/* Card Curso de Cuidador — Fluxo 3 (pêssego) */}
+            <div className="group relative bg-zelar-peach/10 border border-zelar-peach/40 rounded-3xl p-8 hover:shadow-xl hover:shadow-zelar-peach/20 transition-all duration-300">
+              <div className="w-14 h-14 bg-zelar-peach rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-zelar-peach/30">
                 🎓
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Curso de Cuidador</h3>
@@ -146,7 +146,7 @@ export default function LandingPage() {
               <ul className="space-y-2 mb-8">
                 {['Curso completo de capacitação', 'Certificado de conclusão', 'Pagamento via PIX, cartão ou boleto', 'Prioridade nas vagas da rede Zelar'].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-5 h-5 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                    <span className="w-5 h-5 bg-zelar-peach/20 text-zelar-brown-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                     {item}
                   </li>
                 ))}
@@ -155,16 +155,16 @@ export default function LandingPage() {
                 href={waLinkCurso}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-amber-200"
+                className="flex items-center justify-center gap-2 w-full bg-zelar-peach hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-zelar-peach/30"
               >
                 <WhatsAppIcon />
                 Quero me capacitar
               </a>
             </div>
 
-            {/* Card Jurídico Previdenciário — Fluxo 4 */}
-            <div className="group relative bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-100 rounded-3xl p-8 hover:shadow-xl hover:shadow-sky-100 transition-all duration-300">
-              <div className="w-14 h-14 bg-sky-700 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-sky-200">
+            {/* Card Jurídico Previdenciário — Fluxo 4 (roxo) */}
+            <div className="group relative bg-zelar-purple/10 border border-zelar-purple/30 rounded-3xl p-8 hover:shadow-xl hover:shadow-zelar-purple/20 transition-all duration-300">
+              <div className="w-14 h-14 bg-zelar-purple rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-zelar-purple/30">
                 ⚖️
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Suporte Jurídico Previdenciário</h3>
@@ -175,7 +175,7 @@ export default function LandingPage() {
               <ul className="space-y-2 mb-8">
                 {['Análise do seu caso', 'Orientação sobre benefícios do INSS', 'Encaminhamento pra advogada especializada', 'Atendimento inicial sem compromisso'].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-5 h-5 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                    <span className="w-5 h-5 bg-zelar-purple/20 text-zelar-purple rounded-full flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                     {item}
                   </li>
                 ))}
@@ -184,7 +184,7 @@ export default function LandingPage() {
                 href={waLinkJuridico}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-sky-200"
+                className="flex items-center justify-center gap-2 w-full bg-zelar-purple hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-zelar-purple/30"
               >
                 <WhatsAppIcon />
                 Falar com a equipe
@@ -195,7 +195,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMO FUNCIONA ── */}
-      <section className="py-24 px-6 bg-emerald-50">
+      <section className="py-24 px-6 bg-zelar-cream">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-extrabold text-gray-900 mb-3">Como funciona?</h2>
@@ -207,8 +207,8 @@ export default function LandingPage() {
               { step: '02', icon: '🤝', title: 'Avaliação gratuita', desc: 'Agendamos uma conversa pra entender a situação e encontrar o cuidador ideal.' },
               { step: '03', icon: '❤️', title: 'Cuidado em ação', desc: 'O cuidador é apresentado à família e o atendimento começa com acompanhamento da Zelar.' },
             ].map(item => (
-              <div key={item.step} className="bg-white rounded-2xl p-7 shadow-sm border border-emerald-100 text-center">
-                <span className="text-xs font-bold text-emerald-400 tracking-widest">{item.step}</span>
+              <div key={item.step} className="bg-white rounded-2xl p-7 shadow-sm border border-zelar-brown-100 text-center">
+                <span className="text-xs font-bold text-zelar-brown-400 tracking-widest">{item.step}</span>
                 <div className="text-4xl my-3">{item.icon}</div>
                 <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
@@ -231,7 +231,7 @@ export default function LandingPage() {
               { icon: '📋', title: 'Gestão transparente', desc: 'Contrato claro, sem vínculo empregatício direto e com suporte da equipe.' },
               { icon: '🌱', title: 'Crescimento contínuo', desc: 'Cuidadores têm acesso a cursos e novas oportunidades na rede Zelar.' },
             ].map(item => (
-              <div key={item.title} className="flex gap-4 p-6 rounded-2xl bg-gray-50 border border-gray-100">
+              <div key={item.title} className="flex gap-4 p-6 rounded-2xl bg-zelar-cream border border-zelar-brown-100">
                 <span className="text-3xl shrink-0">{item.icon}</span>
                 <div>
                   <h4 className="font-bold text-gray-900 mb-1">{item.title}</h4>
@@ -244,10 +244,10 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA FINAL ── */}
-      <section className="py-24 px-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white text-center">
+      <section className="py-24 px-6 bg-zelar-brown text-white text-center">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-4xl font-extrabold mb-4">Pronto para começar?</h2>
-          <p className="text-emerald-100 text-lg mb-10 leading-relaxed">
+          <p className="text-zelar-brown-100 text-lg mb-10 leading-relaxed">
             Fale agora com a Lícia, nossa assistente virtual, e dê o primeiro passo rumo a um cuidado de qualidade.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -255,16 +255,16 @@ export default function LandingPage() {
               href={waLinkFamilia}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-white text-emerald-700 font-bold px-8 py-4 rounded-2xl text-base hover:bg-emerald-50 transition shadow-lg"
+              className="flex items-center gap-2 bg-white text-zelar-brown-700 font-bold px-8 py-4 rounded-2xl text-base hover:bg-zelar-cream transition shadow-lg"
             >
-              <WhatsAppIcon color="#059669" />
+              <WhatsAppIcon color="#695e4a" />
               Preciso de um Cuidador
             </a>
             <a
               href={waLinkTrabalho}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-8 py-4 rounded-2xl text-base border-2 border-emerald-400 transition"
+              className="flex items-center gap-2 bg-zelar-brown-600 hover:bg-zelar-brown-500 text-white font-bold px-8 py-4 rounded-2xl text-base border-2 border-zelar-brown-500 transition"
             >
               <WhatsAppIcon />
               Quero ser Cuidador
@@ -274,15 +274,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-gray-900 text-gray-400 py-10 px-6 text-center text-sm">
+      <footer className="bg-zelar-brown-900 text-zelar-brown-200 py-10 px-6 text-center text-sm">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <div className="w-6 h-6 bg-emerald-600 rounded-md flex items-center justify-center">
+          <div className="w-6 h-6 bg-zelar-brown-600 rounded-md flex items-center justify-center">
             <span className="text-white text-xs font-bold">Z</span>
           </div>
           <span className="font-semibold text-white">Zelar</span>
         </div>
         <p>Cuidado profissional com quem você ama.</p>
-        <p className="mt-1 text-gray-600 text-xs">© 2026 Zelar. Todos os direitos reservados.</p>
+        <p className="mt-1 text-zelar-brown-400 text-xs">© 2026 Zelar. Todos os direitos reservados.</p>
       </footer>
 
     </div>

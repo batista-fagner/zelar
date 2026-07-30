@@ -1,3 +1,5 @@
+import zelarLogoHorizontal from '../assets/zelar-logo-horizontal.jpg'
+
 const WHATSAPP_NUMBER = '5527999234193'
 
 const waMensagemFamilia  = encodeURIComponent('Olá! Preciso contratar um cuidador.')
@@ -30,6 +32,14 @@ export default function LandingPage() {
         {/* Decorative circles */}
         <div className="absolute top-10 right-10 w-72 h-72 bg-zelar-sage/30 rounded-full opacity-40 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-56 h-56 bg-zelar-blue/20 rounded-full opacity-40 blur-3xl" />
+
+        {/* Logo em marca d'água */}
+        <img
+          src={zelarLogoHorizontal}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 m-auto w-full max-w-4xl opacity-[0.07] pointer-events-none select-none"
+        />
 
         <div className="max-w-4xl mx-auto text-center relative">
           <span className="inline-block bg-zelar-brown-100 text-zelar-brown-700 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">

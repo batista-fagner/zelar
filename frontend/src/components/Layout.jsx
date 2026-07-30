@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, Outlet } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, LayoutDashboard, Send, LogOut, Scissors, Settings, Image, Calendar, Trash2, BarChart2, Bell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LayoutDashboard, Send, LogOut, Settings, Image, Calendar, Trash2, BarChart2, Bell } from 'lucide-react'
+import zelarLogo from '../assets/zelar-logo.jpg'
 
 export default function Layout({ onLogout }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -29,10 +30,7 @@ export default function Layout({ onLogout }) {
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center">
-                <Scissors className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-xs font-bold text-gray-800">Zelar</span>
+              <img src={zelarLogo} alt="Zelar" className="h-10 w-auto object-contain" />
             </div>
           )}
           <button

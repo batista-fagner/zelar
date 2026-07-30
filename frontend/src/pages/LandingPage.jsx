@@ -153,7 +153,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Curso de Cuidador</h3>
               <p className="text-gray-500 mb-6 leading-relaxed">
-                Capacitação completa pra você atuar com segurança, técnica e propósito —
+                Capacitação completa pra você atuar com segurança, técnica e propósito
                 e sair na frente pras vagas da rede Zelar.
               </p>
               <ul className="space-y-2 mb-8">

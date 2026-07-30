@@ -33,45 +33,49 @@ export default function LandingPage() {
         <div className="absolute top-10 right-10 w-72 h-72 bg-zelar-sage/30 rounded-full opacity-40 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-56 h-56 bg-zelar-blue/20 rounded-full opacity-40 blur-3xl" />
 
-        {/* Logo em marca d'água */}
-        <img
-          src={zelarLogoHorizontal}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 m-auto w-full max-w-4xl opacity-[0.07] pointer-events-none select-none"
-        />
+        <div className="max-w-6xl mx-auto relative grid md:grid-cols-2 gap-12 items-center">
+          {/* Logo */}
+          <div className="flex justify-center md:justify-start order-1">
+            <img
+              src={zelarLogoHorizontal}
+              alt="Zelar — Saúde e Cuidado"
+              className="w-full max-w-md object-contain"
+            />
+          </div>
 
-        <div className="max-w-4xl mx-auto text-center relative">
-          <span className="inline-block bg-zelar-brown-100 text-zelar-brown-700 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">
-            Cuidado profissional com quem você ama
-          </span>
-          <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
-            Quem cuida de você,<br />
-            <span className="text-zelar-brown">merece o melhor.</span>
-          </h1>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-10 leading-relaxed">
-            A Zelar conecta famílias a cuidadores capacitados para atendimento domiciliar e hospitalar —
-            com segurança, empatia e profissionalismo.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href={waLinkFamilia}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-zelar-brown hover:bg-zelar-brown-800 text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg shadow-zelar-brown-200 transition"
-            >
-              <WhatsAppIcon />
-              Preciso de um Cuidador
-            </a>
-            <a
-              href={waLinkTrabalho}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-bold px-8 py-4 rounded-2xl text-base border-2 border-gray-200 transition"
-            >
-              <WhatsAppIcon color="#695e4a" />
-              Quero ser Cuidador
-            </a>
+          {/* Texto */}
+          <div className="text-center md:text-left order-2">
+            <span className="inline-block bg-zelar-brown-100 text-zelar-brown-700 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">
+              Cuidado profissional com quem você ama
+            </span>
+            <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
+              Quem cuida de você,<br />
+              <span className="text-zelar-brown">merece o melhor.</span>
+            </h1>
+            <p className="text-lg text-gray-500 max-w-xl mx-auto md:mx-0 mb-10 leading-relaxed">
+              A Zelar conecta famílias a cuidadores capacitados para atendimento domiciliar e hospitalar —
+              com segurança, empatia e profissionalismo.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4">
+              <a
+                href={waLinkFamilia}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-zelar-brown hover:bg-zelar-brown-800 text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg shadow-zelar-brown-200 transition"
+              >
+                <WhatsAppIcon />
+                Preciso de um Cuidador
+              </a>
+              <a
+                href={waLinkTrabalho}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-bold px-8 py-4 rounded-2xl text-base border-2 border-gray-200 transition"
+              >
+                <WhatsAppIcon color="#695e4a" />
+                Quero ser Cuidador
+              </a>
+            </div>
           </div>
         </div>
       </section>

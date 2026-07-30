@@ -1,4 +1,4 @@
-const WHATSAPP_NUMBER = '5527996972230'
+const WHATSAPP_NUMBER = '5527999234193'
 
 const waMensagemFamilia  = encodeURIComponent('Olá! Preciso contratar um cuidador.')
 const waMensagemTrabalho = encodeURIComponent('Olá! Quero trabalhar como cuidador(a) pela Zelar.')

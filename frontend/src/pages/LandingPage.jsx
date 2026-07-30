@@ -28,19 +28,22 @@ export default function LandingPage() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="pt-32 pb-24 px-6 bg-zelar-cream relative overflow-hidden">
+      <section className="pt-32 pb-24 px-6 bg-gradient-to-br from-zelar-sage/25 via-zelar-cream to-zelar-peach/25 relative overflow-hidden">
         {/* Decorative circles */}
-        <div className="absolute top-10 right-10 w-72 h-72 bg-zelar-sage/30 rounded-full opacity-40 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-56 h-56 bg-zelar-blue/20 rounded-full opacity-40 blur-3xl" />
+        <div className="absolute top-10 right-10 w-80 h-80 bg-zelar-peach/40 rounded-full opacity-60 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-zelar-blue/30 rounded-full opacity-60 blur-3xl" />
+        <div className="absolute top-1/2 left-1/3 w-40 h-40 bg-zelar-purple/20 rounded-full opacity-50 blur-3xl" />
 
         <div className="max-w-6xl mx-auto relative grid md:grid-cols-2 gap-12 items-center">
           {/* Logo */}
           <div className="flex justify-center md:justify-start order-1">
-            <img
-              src={zelarLogoHorizontal}
-              alt="Zelar — Saúde e Cuidado"
-              className="w-full max-w-md object-contain"
-            />
+            <div className="bg-zelar-cream rounded-3xl shadow-xl p-6 w-full max-w-md">
+              <img
+                src={zelarLogoHorizontal}
+                alt="Zelar — Saúde e Cuidado"
+                className="w-full object-contain"
+              />
+            </div>
           </div>
 
           {/* Texto */}
@@ -53,7 +56,7 @@ export default function LandingPage() {
               <span className="text-zelar-brown">merece o melhor.</span>
             </h1>
             <p className="text-lg text-gray-500 max-w-xl mx-auto md:mx-0 mb-10 leading-relaxed">
-              A Zelar conecta famílias a cuidadores capacitados para atendimento domiciliar e hospitalar —
+              A Zelar conecta famílias a cuidadores capacitados para atendimento domiciliar e hospitalar,
               com segurança, empatia e profissionalismo.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4">
@@ -209,7 +212,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMO FUNCIONA ── */}
-      <section className="py-24 px-6 bg-zelar-cream">
+      <section className="py-24 px-6 bg-gradient-to-b from-zelar-blue/10 to-zelar-cream">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-extrabold text-gray-900 mb-3">Como funciona?</h2>
@@ -217,11 +220,11 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: '01', icon: '💬', title: 'Fale com a gente', desc: 'Mande uma mensagem no WhatsApp. Nossa IA te atende na hora e entende o que você precisa.' },
-              { step: '02', icon: '🤝', title: 'Avaliação gratuita', desc: 'Agendamos uma conversa pra entender a situação e encontrar o cuidador ideal.' },
-              { step: '03', icon: '❤️', title: 'Cuidado em ação', desc: 'O cuidador é apresentado à família e o atendimento começa com acompanhamento da Zelar.' },
+              { step: '01', icon: '💬', title: 'Fale com a gente', desc: 'Mande uma mensagem no WhatsApp. A Zelar te atende na hora e entende o que você precisa.', border: 'border-zelar-sage' },
+              { step: '02', icon: '🤝', title: 'Avaliação gratuita', desc: 'Agendamos uma conversa pra entender a situação e encontrar o cuidador ideal.', border: 'border-zelar-blue' },
+              { step: '03', icon: '❤️', title: 'Cuidado em ação', desc: 'O cuidador é apresentado à família e o atendimento começa com acompanhamento da Zelar.', border: 'border-zelar-peach' },
             ].map(item => (
-              <div key={item.step} className="bg-white rounded-2xl p-7 shadow-sm border border-zelar-brown-100 text-center">
+              <div key={item.step} className={`bg-white rounded-2xl p-7 shadow-md border-t-4 ${item.border} text-center`}>
                 <span className="text-xs font-bold text-zelar-brown-400 tracking-widest">{item.step}</span>
                 <div className="text-4xl my-3">{item.icon}</div>
                 <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>

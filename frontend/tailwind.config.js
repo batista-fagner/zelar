@@ -18,7 +18,7 @@ export default {
             800: '#544a3a',
             900: '#443d30',
           },
-          cream: '#f7f2e7',
+          cream: '#f7f7f7',
           sage: '#95b3a9',
           blue: '#5a7e96',
           peach: '#f7ba8b',

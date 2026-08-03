@@ -305,6 +305,7 @@ export class LeadsService implements OnApplicationBootstrap {
   async runInactivityFollowupJob() {
     if (!this.followupSender) return;
     const config = await this.whatsappConfigRepo.findOne({ where: {} });
+    if (config?.inactivityFollowupEnabled === false) return;
     if (!config?.inactivityFollowupMinutes || !config?.inactivityFollowupMessage) return;
 
     const cutoff = new Date(Date.now() - config.inactivityFollowupMinutes * 60 * 1000);
@@ -355,18 +356,21 @@ export class LeadsService implements OnApplicationBootstrap {
     }
   }
 
-  async updateInactivityFollowupConfig(minutes: number, message: string): Promise<void> {
+  async updateInactivityFollowupConfig(minutes: number, message: string, enabled?: boolean): Promise<void> {
     const config = await this.whatsappConfigRepo.findOne({ where: {} });
     if (config) {
-      await this.whatsappConfigRepo.update(config.id, { inactivityFollowupMinutes: minutes, inactivityFollowupMessage: message });
+      const patch: Partial<WhatsappConfig> = { inactivityFollowupMinutes: minutes, inactivityFollowupMessage: message };
+      if (typeof enabled === 'boolean') patch.inactivityFollowupEnabled = enabled;
+      await this.whatsappConfigRepo.update(config.id, patch);
     }
   }
 
-  async getInactivityFollowupConfig(): Promise<{ minutes: number; message: string }> {
+  async getInactivityFollowupConfig(): Promise<{ minutes: number; message: string; enabled: boolean }> {
     const config = await this.whatsappConfigRepo.findOne({ where: {} });
     return {
       minutes: config?.inactivityFollowupMinutes ?? 60,
       message: config?.inactivityFollowupMessage ?? 'Olá! Ainda está por aí? Fico à disposição pra continuar te ajudando 😊',
+      enabled: config?.inactivityFollowupEnabled ?? true,
     };
   }
 

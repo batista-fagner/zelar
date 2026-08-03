@@ -60,6 +60,11 @@ export class WhatsappConfig {
   @Column({ name: 'inactivity_followup_message', nullable: true, type: 'text' })
   inactivityFollowupMessage: string | null;
 
+  // Chave-mestra: cliente decide se quer o followup de inatividade ligado ou não,
+  // sem apagar minutos/mensagem já configurados. Default true (comportamento atual).
+  @Column({ name: 'inactivity_followup_enabled', type: 'boolean', default: true })
+  inactivityFollowupEnabled: boolean;
+
   // Fluxo 1 — valores dos planos em centavos, por complexidade + turno
   // (0 = não configurado, valor omitido nas mensagens). Simples não tem 24h.
   @Column({ name: 'plan_simples_diurno_value', type: 'int', default: 0 })

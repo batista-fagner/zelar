@@ -215,8 +215,8 @@ export class LeadsController {
   }
 
   @Post('inactivity-followup/config')
-  async updateInactivityFollowupConfig(@Body() body: { minutes: number; message: string }) {
-    await this.leadsService.updateInactivityFollowupConfig(body.minutes, body.message);
+  async updateInactivityFollowupConfig(@Body() body: { minutes: number; message: string; enabled?: boolean }) {
+    await this.leadsService.updateInactivityFollowupConfig(body.minutes, body.message, body.enabled);
     return { ok: true };
   }
 

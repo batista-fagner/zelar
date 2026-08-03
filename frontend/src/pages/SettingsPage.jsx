@@ -68,6 +68,7 @@ export default function SettingsPage() {
   const [savingFollowup, setSavingFollowup] = useState(false)
   const [inactivityMinutes, setInactivityMinutes] = useState(60)
   const [inactivityMessage, setInactivityMessage] = useState('Olá! Ainda está por aí? Fico à disposição pra continuar te ajudando 😊')
+  const [inactivityEnabled, setInactivityEnabled] = useState(true)
   const [savingInactivity, setSavingInactivity] = useState(false)
   // Fluxo 1 — cuidadores e valores dos planos
   const [caregivers, setCaregivers] = useState([])
@@ -157,6 +158,7 @@ export default function SettingsPage() {
       const data = await res.json()
       setInactivityMinutes(data.minutes ?? 60)
       setInactivityMessage(data.message ?? '')
+      setInactivityEnabled(data.enabled ?? true)
     } catch { /* silencioso */ }
   }
 
@@ -837,10 +839,33 @@ export default function SettingsPage() {
       {/* Card de follow-up de inatividade (Fluxo 1, 2 e 3) */}
       {!bootstrapping && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
-          <h2 className="text-sm font-semibold text-gray-800 mb-1">Follow-up de inatividade</h2>
-          <p className="text-xs text-gray-500 mb-4">Se o lead ficar sem responder durante o atendimento (Fluxo 1, 2 ou 3), a LIA envia essa mensagem fixa pra retomar o contato.</p>
+          <div className="flex items-center justify-between gap-4 mb-1">
+            <h2 className="text-sm font-semibold text-gray-800">Follow-up de inatividade</h2>
+            <button
+              onClick={async () => {
+                const next = !inactivityEnabled
+                setInactivityEnabled(next)
+                try {
+                  await fetch(`${API_URL}/leads/inactivity-followup/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ minutes: inactivityMinutes, message: inactivityMessage, enabled: next }),
+                  })
+                } catch {
+                  setInactivityEnabled(!next) // reverte
+                }
+              }}
+              className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+                inactivityEnabled ? 'bg-teal-600' : 'bg-gray-200'
+              }`}
+              title={inactivityEnabled ? 'Desligar follow-up de inatividade' : 'Ligar follow-up de inatividade'}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${inactivityEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Se o lead ficar sem responder durante o atendimento (Fluxo 1, 2 ou 3), a LIA envia essa mensagem fixa pra retomar o contato. Desligue aqui se não quiser mais esse follow-up.</p>
 
-          <div className="space-y-4">
+          <div className={`space-y-4 transition-opacity ${inactivityEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Tempo de espera (minutos)</label>
               <input
@@ -870,7 +895,7 @@ export default function SettingsPage() {
                   await fetch(`${API_URL}/leads/inactivity-followup/config`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ minutes: inactivityMinutes, message: inactivityMessage }),
+                    body: JSON.stringify({ minutes: inactivityMinutes, message: inactivityMessage, enabled: inactivityEnabled }),
                   })
                 } finally {
                   setSavingInactivity(false)

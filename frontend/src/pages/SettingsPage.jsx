@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Wifi, WifiOff, Loader2, Smartphone, RotateCcw, AlertCircle, X, RefreshCw, Trash2, Radio, Plus, Users, UserPlus } from 'lucide-react'
+import { Wifi, WifiOff, Loader2, Smartphone, RotateCcw, AlertCircle, X, RefreshCw, Trash2, Radio, Plus, Users, UserPlus, Coins } from 'lucide-react'
 import { getCaregivers, createCaregiver, updateCaregiver, deleteCaregiver } from '../services/api'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
@@ -86,7 +86,23 @@ export default function SettingsPage() {
   const [savingPlans, setSavingPlans] = useState(false)
   const [careDuties, setCareDuties] = useState({ simples: '', medio: '', complexo: '', hospitalar: '' })
   const [savingDuties, setSavingDuties] = useState(false)
+  // Uso de IA — acumulado global (não por cliente/lead), pra ela acompanhar gasto
+  const [usage, setUsage] = useState({ aiInputTokensTotal: 0, aiOutputTokensTotal: 0, aiCallsTotal: 0, aiUsageResetAt: null })
+  const [resettingUsage, setResettingUsage] = useState(false)
+  const [showConfirmResetUsage, setShowConfirmResetUsage] = useState(false)
   const pollingRef = useRef(null)
+
+  // Preço pago do gemini-3.1-flash-lite (modelo principal da LIA): US$0,25/1M tokens de
+  // entrada, US$1,50/1M de saída. Estimativa — se a API key estiver no tier gratuito do
+  // Google AI Studio, o gasto real pode ser zero; isso é o teto (preço tier pago) em dólar
+  // convertido por uma cotação fixa aproximada, só pra dar uma noção de valor a acompanhar.
+  const USD_PER_1M_INPUT = 0.25
+  const USD_PER_1M_OUTPUT = 1.50
+  const USD_TO_BRL = 5.5
+  const estimatedUsd =
+    (usage.aiInputTokensTotal / 1_000_000) * USD_PER_1M_INPUT +
+    (usage.aiOutputTokensTotal / 1_000_000) * USD_PER_1M_OUTPUT
+  const estimatedBrl = estimatedUsd * USD_TO_BRL
 
   const fetchStatus = async () => {
     try {
@@ -135,6 +151,12 @@ export default function SettingsPage() {
         medio: data?.careDutiesMedio ?? '',
         complexo: data?.careDutiesComplexo ?? '',
         hospitalar: data?.careDutiesHospitalar ?? '',
+      })
+      setUsage({
+        aiInputTokensTotal: Number(data?.aiInputTokensTotal ?? 0),
+        aiOutputTokensTotal: Number(data?.aiOutputTokensTotal ?? 0),
+        aiCallsTotal: Number(data?.aiCallsTotal ?? 0),
+        aiUsageResetAt: data?.aiUsageResetAt ?? null,
       })
       return data
     } catch {
@@ -411,6 +433,23 @@ export default function SettingsPage() {
       setError('Não foi possível reiniciar. Verifique sua internet e tente novamente.')
     } finally {
       setResetting(false)
+    }
+  }
+
+  const handleResetUsage = async () => {
+    setShowConfirmResetUsage(false)
+    setResettingUsage(true)
+    try {
+      const res = await fetch(`${API_URL}/instance/usage/reset`, { method: 'POST' })
+      const data = await res.json()
+      setUsage({
+        aiInputTokensTotal: Number(data?.aiInputTokensTotal ?? 0),
+        aiOutputTokensTotal: Number(data?.aiOutputTokensTotal ?? 0),
+        aiCallsTotal: Number(data?.aiCallsTotal ?? 0),
+        aiUsageResetAt: data?.aiUsageResetAt ?? null,
+      })
+    } finally {
+      setResettingUsage(false)
     }
   }
 
@@ -705,6 +744,58 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Card de uso/gasto da IA — acumulado total da plataforma, não por lead */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Coins className="w-4 h-4 text-teal-700" />
+            <h2 className="text-sm font-semibold text-gray-800">Uso da IA</h2>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            Total consumido pela LIA (Gemini) desde {usage.aiUsageResetAt ? 'o último reabastecimento' : 'o início'}.
+            Estimativa de custo pelo preço público do modelo — sirva pra acompanhar, não é a fatura exata do Google.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500">Tokens entrada</p>
+              <p className="text-sm font-semibold text-gray-800">{usage.aiInputTokensTotal.toLocaleString('pt-BR')}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500">Tokens saída</p>
+              <p className="text-sm font-semibold text-gray-800">{usage.aiOutputTokensTotal.toLocaleString('pt-BR')}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500">Mensagens processadas</p>
+              <p className="text-sm font-semibold text-gray-800">{usage.aiCallsTotal.toLocaleString('pt-BR')}</p>
+            </div>
+            <div className="bg-teal-50 rounded-lg p-3">
+              <p className="text-xs text-teal-700">Custo estimado</p>
+              <p className="text-sm font-semibold text-teal-800">
+                R$ {estimatedBrl.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] text-teal-600">≈ US$ {estimatedUsd.toFixed(4)}</p>
+            </div>
+          </div>
+
+          {usage.aiUsageResetAt && (
+            <p className="text-xs text-gray-400 mb-3">
+              Zerado em {new Date(usage.aiUsageResetAt).toLocaleString('pt-BR')}
+            </p>
+          )}
+
+          <button
+            onClick={() => setShowConfirmResetUsage(true)}
+            disabled={resettingUsage}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+            title="Zerar o contador depois que o cliente reabastecer"
+          >
+            {resettingUsage ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Zerar contador
+          </button>
+        </div>
+      )}
 
       {/* Card de prompt customizado */}
       {!bootstrapping && (
@@ -1099,6 +1190,36 @@ export default function SettingsPage() {
                 className="flex-1 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
               >
                 Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmResetUsage && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-80 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                <Coins className="w-5 h-5 text-teal-700" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">Zerar contador de uso?</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Use depois que o cliente reabastecer. Não afeta o funcionamento da IA, só o contador.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowConfirmResetUsage(false)}
+                className="flex-1 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleResetUsage}
+                className="flex-1 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition"
+              >
+                Zerar
               </button>
             </div>
           </div>

@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { Lead, ActiveFlow } from '../common/entities/lead.entity';
+import { WhatsappConfig } from '../common/entities/whatsapp-config.entity';
 
 export type FlowKey = ActiveFlow; // 'roteador' | 'fluxo_1' | 'fluxo_2' | 'fluxo_3' | 'fluxo_4'
 
@@ -580,9 +583,29 @@ export class AiService {
   private readonly geminiModel = 'gemini-3.1-flash-lite';
   private readonly geminiModelFallback = 'gemini-2.5-flash-lite';
 
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    @InjectRepository(WhatsappConfig)
+    private readonly configRepo: Repository<WhatsappConfig>,
+  ) {
     this.genai = new GoogleGenerativeAI(config.get('GEMINI_API_KEY') ?? '');
     this.openrouterKey = config.get('OPENROUTER_API_KEY') ?? '';
+  }
+
+  /**
+   * Soma tokens de uma chamada ao acumulado global (não é por lead — é o total da
+   * plataforma, pra cliente acompanhar gasto e saber quando reabastecer). Incremento
+   * atômico no banco pra não perder contagem com mensagens concorrentes; nunca deve
+   * derrubar o fluxo principal se falhar.
+   */
+  private async recordUsage(inputTokens: number, outputTokens: number): Promise<void> {
+    try {
+      await this.configRepo.increment({}, 'aiInputTokensTotal', inputTokens || 0);
+      await this.configRepo.increment({}, 'aiOutputTokensTotal', outputTokens || 0);
+      await this.configRepo.increment({}, 'aiCallsTotal', 1);
+    } catch (err) {
+      this.logger.warn(`Falha ao registrar uso de tokens: ${err.message}`);
+    }
   }
 
   getDefaultPrompts() {
@@ -705,6 +728,12 @@ export class AiService {
     const raw = result.response.text().trim();
     if (!raw) throw new Error('Resposta vazia do Gemini');
     this.logger.debug(`[LIA/Gemini(${modelName})] Resposta bruta: ${raw}`);
+
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      void this.recordUsage(usage.promptTokenCount ?? 0, usage.candidatesTokenCount ?? 0);
+    }
+
     return parseAiJson(raw);
   }
 

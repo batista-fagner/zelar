@@ -86,4 +86,9 @@ export class InstanceController {
   async getDefaultPrompts() {
     return this.aiService.getDefaultPrompts();
   }
+
+  @Post('usage/reset')
+  async resetUsage() {
+    return this.whatsappConfigService.resetUsage();
+  }
 }

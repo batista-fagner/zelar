@@ -170,6 +170,17 @@ export class WhatsappConfigService {
     return this.repo.save(record);
   }
 
+  /** Zera o acumulado de tokens/custo de IA — usar depois que o cliente reabastecer. */
+  async resetUsage(): Promise<WhatsappConfig> {
+    let record = await this.get();
+    if (!record) record = this.repo.create();
+    record.aiInputTokensTotal = 0;
+    record.aiOutputTokensTotal = 0;
+    record.aiCallsTotal = 0;
+    record.aiUsageResetAt = new Date();
+    return this.repo.save(record);
+  }
+
   async deleteRecord(): Promise<void> {
     const record = await this.get();
     if (record) {

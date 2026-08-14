@@ -116,6 +116,30 @@ export class WhatsappConfig {
   @Column({ name: 'care_duties_hospitalar', nullable: true, type: 'text' })
   careDutiesHospitalar: string | null;
 
+  // Acumulado de uso da IA (Gemini) — não é por lead, é o total da plataforma desde o
+  // último reset. Usado pra cliente acompanhar gasto e saber quando reabastecer.
+  @Column({
+    name: 'ai_input_tokens_total',
+    type: 'bigint',
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => Number(v) },
+  })
+  aiInputTokensTotal: number;
+
+  @Column({
+    name: 'ai_output_tokens_total',
+    type: 'bigint',
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => Number(v) },
+  })
+  aiOutputTokensTotal: number;
+
+  @Column({ name: 'ai_calls_total', type: 'int', default: 0 })
+  aiCallsTotal: number;
+
+  @Column({ name: 'ai_usage_reset_at', type: 'timestamp', nullable: true })
+  aiUsageResetAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

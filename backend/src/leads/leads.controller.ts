@@ -125,6 +125,16 @@ export class LeadsController {
     return { ok: true };
   }
 
+  @Post(':id/complete-course')
+  async completeCourse(@Param('id') id: string) {
+    const lead = await this.leadsService.findOne(id);
+    if (!lead) return { ok: false, error: 'Lead não encontrado' };
+
+    const updated = await this.leadsService.completeCourse(id);
+    this.leadsGateway.emitLeadUpdated(updated);
+    return { ok: true };
+  }
+
   @Post(':id/cancel-care')
   async cancelCare(@Param('id') id: string) {
     const request = await this.careRequestsService.cancelForLead(id);

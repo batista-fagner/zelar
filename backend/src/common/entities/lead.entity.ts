@@ -95,9 +95,14 @@ export class Lead {
   @Column({ name: 'matriculado_at', nullable: true, type: 'timestamp' })
   matriculadoAt: Date | null;
 
-  // Pesquisa de satisfação do curso (fluxo 3) enviada 24h depois de matriculado_at.
+  // Pesquisa de satisfação do curso (fluxo 3) enviada quando o operador marca o curso como concluído.
   @Column({ name: 'course_survey_sent_at', nullable: true, type: 'timestamp' })
   courseSurveySentAt: Date | null;
+
+  // Data em que o operador marcou o curso como concluído (botão no card) — dispara a
+  // pesquisa de satisfação na hora, em vez de um prazo fixo após a matrícula.
+  @Column({ name: 'course_completed_at', nullable: true, type: 'timestamp' })
+  courseCompletedAt: Date | null;
 
   @Column({ nullable: true, type: 'varchar' })
   cpf: string | null;

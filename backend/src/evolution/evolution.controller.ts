@@ -481,11 +481,14 @@ export class EvolutionController implements OnModuleInit {
         await this.leadsService.update(lead.id, { labels: mergedLabels } as any);
       }
 
-      // Atualiza stage e desativa IA permanentemente para nunca mais responder
+      // Atualiza stage. Leads que caem em "perdido" continuam com a IA ativa —
+      // se o lead voltar a escrever, a IA responde normalmente de novo.
       if (aiResponse.stage) {
         await this.safeUpdateStageForAi(lead.id, lead.stage, aiResponse.stage);
       }
-      await this.leadsService.toggleAi(lead.id, false);
+      if (aiResponse.stage !== 'perdido') {
+        await this.leadsService.toggleAi(lead.id, false);
+      }
 
       const updatedLead = await this.leadsService.findOne(lead.id);
       this.leadsGateway.emitLeadUpdated(updatedLead);

@@ -562,7 +562,12 @@ export class EvolutionController implements OnModuleInit {
       const name = (freshLead.name ?? '').trim();
       // Só conclui se o lead ainda NÃO chegou a aguardando_pagamento (evita regredir
       // um lead já em aguardando_pagamento/pagamento_confirmado/matriculado).
-      const beforePayment = (this.STAGE_ORDER[freshLead.stage] ?? 0) < this.STAGE_ORDER['aguardando_pagamento'];
+      // "perdido" tem o mesmo STAGE_ORDER de aguardando_pagamento (não é posição de funil —
+      // ver comentário em leads.service.ts), então é tratado explicitamente como "ainda não
+      // pagou" aqui: um lead que reengajou e completou nome+CPF não pode ficar travado sem
+      // notificar o operador só por ter sido marcado perdido antes.
+      const beforePayment = freshLead.stage === 'perdido'
+        || (this.STAGE_ORDER[freshLead.stage] ?? 0) < this.STAGE_ORDER['aguardando_pagamento'];
       if (name && cpf.length === 11 && beforePayment) {
         await this.completeBoleto(freshLead, phone, conversation.id);
         return;
@@ -957,7 +962,10 @@ export class EvolutionController implements OnModuleInit {
       return false;
     }
 
-    if (newOrder <= currentOrder) {
+    // "perdido" compartilha o mesmo STAGE_ORDER de aguardando_pagamento (não é posição de
+    // funil — estado negativo). Sair de "perdido" pra qualquer stage à frente de em_atendimento
+    // nunca é regressão de verdade: é o lead reengajando depois de ter sido marcado perdido.
+    if (currentStage !== 'perdido' && newOrder <= currentOrder) {
       this.logger.warn(`[STAGE] Bloqueado pela IA: ${currentStage}(${currentOrder}) → ${newStage}(${newOrder}) é regressão`);
       return false;
     }

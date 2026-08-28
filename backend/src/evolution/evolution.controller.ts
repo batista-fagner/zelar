@@ -251,6 +251,15 @@ export class EvolutionController implements OnModuleInit {
     const { lead: leadInit, conversation } = await this.leadsService.findOrCreate(phone);
     let lead = leadInit;
 
+    // REENGAJAMENTO: lead que estava "perdido" voltou a escrever — sai do estado negativo
+    // automaticamente pro Kanban refletir que ele está engajado de novo. "perdido" não é
+    // uma posição real do funil, então isso nunca é tratado como regressão (ver STAGE_ORDER).
+    if (lead.stage === 'perdido') {
+      await this.leadsService.updateStage(lead.id, 'em_atendimento' as any, 'system');
+      lead = (await this.leadsService.findOne(lead.id)) ?? lead;
+      this.logger.log(`[REENGAJAMENTO] ${phone} saiu de perdido → em_atendimento`);
+    }
+
     this.logger.log(`[DIAG] findOrCreate phone=${phone} → id=${lead.id}, stage=${lead.stage}, activeFlow=${lead.activeFlow}, aiEnabled=?`);
 
     await this.leadsService.saveMessage(conversation.id, 'inbound', phone, combinedText, messageKeyId);
@@ -277,9 +286,8 @@ export class EvolutionController implements OnModuleInit {
       return;
     }
 
-    // Lead perdido que volta a falar: a IA continua respondendo, mas o card NÃO é
-    // movido automaticamente (regra: nenhuma regressão automática). Se for o caso de
-    // reativar, o operador move o card manualmente no Kanban.
+    // Lead perdido que volta a falar já foi movido pra em_atendimento acima (REENGAJAMENTO)
+    // e a IA responde normalmente a partir daqui.
 
     // AUTO-EXTRAÇÃO DE CPF: se a mensagem contém exatamente 11 dígitos e o lead
     // ainda não tem CPF, salva imediatamente — a IA não precisa validar formato.

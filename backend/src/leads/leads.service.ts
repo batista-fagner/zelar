@@ -138,7 +138,9 @@ export class LeadsService implements OnApplicationBootstrap {
 
     // PROTEÇÃO CENTRALIZADA (fonte única): só o operador pode regredir/mover livremente.
     // IA e sistema NUNCA regridem um card — bloqueia em qualquer caminho que chame updateStage.
-    if (changedBy !== 'operator') {
+    // Exceção: sair de "perdido" nunca é regressão de verdade — perdido não é uma posição
+    // real do funil, é só um estado negativo (ver STAGE_ORDER acima).
+    if (changedBy !== 'operator' && fromStage !== 'perdido') {
       const fromOrder = LeadsService.STAGE_ORDER[fromStage] ?? 0;
       const toOrder = LeadsService.STAGE_ORDER[toStage] ?? 0;
       if (toOrder < fromOrder) {

@@ -78,6 +78,8 @@ export class InstanceController {
     careDutiesMedio?: string | null;
     careDutiesComplexo?: string | null;
     careDutiesHospitalar?: string | null;
+    deactivationKeyword?: string | null;
+    activationKeyword?: string | null;
   }) {
     return this.whatsappConfigService.updateConfig(body);
   }

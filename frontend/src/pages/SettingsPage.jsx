@@ -90,6 +90,11 @@ export default function SettingsPage() {
   const [usage, setUsage] = useState({ aiInputTokensTotal: 0, aiOutputTokensTotal: 0, aiCallsTotal: 0, aiUsageResetAt: null })
   const [resettingUsage, setResettingUsage] = useState(false)
   const [showConfirmResetUsage, setShowConfirmResetUsage] = useState(false)
+  // Palavras que o operador digita no próprio WhatsApp pra pausar/reativar a IA do lead
+  const [deactivationKeyword, setDeactivationKeyword] = useState('opa')
+  const [activationKeyword, setActivationKeyword] = useState('volta')
+  const [savingKeywords, setSavingKeywords] = useState(false)
+  const [keywordsSaved, setKeywordsSaved] = useState(false)
   const pollingRef = useRef(null)
 
   // Preço pago do gemini-3.1-flash-lite (modelo principal da LIA): US$0,25/1M tokens de
@@ -123,6 +128,8 @@ export default function SettingsPage() {
       const data = await res.json()
       setInstanceConfig(data)
       setWebhookConfigured(data?.webhookConfigured ?? false)
+      setDeactivationKeyword(data?.deactivationKeyword || 'opa')
+      setActivationKeyword(data?.activationKeyword || 'volta')
       // Carrega prompts salvos; fluxo_3 cai para o prompt legado se ainda não tiver promptFluxo3
       setPrompts(prev => ({
         roteador: data?.promptRoteador ?? prev.roteador,
@@ -858,6 +865,67 @@ export default function SettingsPage() {
             >
               Restaurar padrão
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Card de palavras para pausar/reativar a IA pelo WhatsApp */}
+      {!bootstrapping && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">Pausar e reativar a IA pelo WhatsApp</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Digite a palavra pelo próprio WhatsApp da Zelar (celular ou WhatsApp Web), dentro da conversa do lead. A palavra de pausa desliga a LIA só para aquele lead, e a de reativação liga de novo.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Palavra para pausar a IA</label>
+              <input
+                type="text"
+                value={deactivationKeyword}
+                onChange={e => setDeactivationKeyword(e.target.value)}
+                maxLength={40}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Palavra para reativar a IA</label>
+              <input
+                type="text"
+                value={activationKeyword}
+                onChange={e => setActivationKeyword(e.target.value)}
+                maxLength={40}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={async () => {
+                const off = deactivationKeyword.trim()
+                const on = activationKeyword.trim()
+                if (!off || !on || off.toLowerCase() === on.toLowerCase()) return
+                setSavingKeywords(true)
+                try {
+                  await fetch(`${API_URL}/instance/config`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deactivationKeyword: off, activationKeyword: on }),
+                  })
+                  setDeactivationKeyword(off)
+                  setActivationKeyword(on)
+                  setKeywordsSaved(true)
+                  setTimeout(() => setKeywordsSaved(false), 2000)
+                } finally {
+                  setSavingKeywords(false)
+                }
+              }}
+              disabled={savingKeywords || !deactivationKeyword.trim() || !activationKeyword.trim() || deactivationKeyword.trim().toLowerCase() === activationKeyword.trim().toLowerCase()}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition disabled:opacity-50"
+            >
+              {savingKeywords ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {savingKeywords ? 'Salvando...' : 'Salvar palavras'}
+            </button>
+            {keywordsSaved && <span className="text-xs text-teal-600">Salvo!</span>}
           </div>
         </div>
       )}

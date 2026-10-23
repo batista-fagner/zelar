@@ -140,6 +140,8 @@ export class WhatsappConfigService {
     careDutiesMedio?: string | null;
     careDutiesComplexo?: string | null;
     careDutiesHospitalar?: string | null;
+    deactivationKeyword?: string | null;
+    activationKeyword?: string | null;
   }): Promise<WhatsappConfig> {
     let record = await this.get();
     if (!record) record = this.repo.create();
@@ -167,7 +169,14 @@ export class WhatsappConfigService {
     for (const key of dutiesFields) {
       if (key in fields) (record as any)[key] = (fields as any)[key] ?? null;
     }
+    if ('deactivationKeyword' in fields) record.deactivationKeyword = this.sanitizeKeyword(fields.deactivationKeyword, 'opa');
+    if ('activationKeyword' in fields) record.activationKeyword = this.sanitizeKeyword(fields.activationKeyword, 'volta');
     return this.repo.save(record);
+  }
+
+  private sanitizeKeyword(raw: string | null | undefined, fallback: string): string {
+    const trimmed = String(raw ?? '').trim().slice(0, 40);
+    return trimmed || fallback;
   }
 
   /** Zera o acumulado de tokens/custo de IA — usar depois que o cliente reabastecer. */

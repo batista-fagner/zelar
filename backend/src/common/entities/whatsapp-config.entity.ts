@@ -140,6 +140,14 @@ export class WhatsappConfig {
   @Column({ name: 'ai_usage_reset_at', type: 'timestamp', nullable: true })
   aiUsageResetAt: Date | null;
 
+  // Palavra que o operador digita no WhatsApp (fromMe) para desativar a IA daquele lead. Padrão: 'opa'.
+  @Column({ name: 'deactivation_keyword', type: 'varchar', default: 'opa' })
+  deactivationKeyword: string;
+
+  // Palavra que o operador digita no WhatsApp (fromMe) para reativar a IA daquele lead. Padrão: 'volta'.
+  @Column({ name: 'activation_keyword', type: 'varchar', default: 'volta' })
+  activationKeyword: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

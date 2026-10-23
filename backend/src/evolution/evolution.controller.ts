@@ -59,6 +59,49 @@ export class EvolutionController implements OnModuleInit {
     );
   }
 
+  private async handleOperatorMessage(body: any, message: any, config: any): Promise<void> {
+    const phone = String(body.chat?.phone ?? '').replace(/\D/g, '');
+    const operatorText = String(message.text ?? '').trim();
+    if (!phone || !operatorText) return;
+
+    const messageId: string = message.messageid;
+    if (messageId && this.processedIds.has(messageId)) return;
+    if (messageId) {
+      this.processedIds.add(messageId);
+      setTimeout(() => this.processedIds.delete(messageId), 5 * 60 * 1000);
+    }
+
+    try {
+      const found = await this.leadsService.findExistingByPhone(phone);
+      if (!found) return;
+      const { lead, conversation } = found;
+
+      const deactivationKeyword = (config?.deactivationKeyword || 'opa').trim().toLowerCase();
+      const activationKeyword = (config?.activationKeyword || 'volta').trim().toLowerCase();
+      // Apps multi-atendente podem prefixar a mensagem com assinatura ("*Julia:*\nopa") —
+      // compara pela última linha não vazia, não pelo texto inteiro.
+      const lastLine = (operatorText.split('\n').map(l => l.trim()).filter(Boolean).pop() ?? '').toLowerCase();
+
+      if (lastLine === deactivationKeyword) {
+        await this.leadsService.toggleAi(lead.id, false);
+        this.logger.log(`🛑 [DEACTIVATE] Operador assumiu conversa de ${phone} via WhatsApp — IA desativada (palavra: "${deactivationKeyword}")`);
+      } else if (lastLine === activationKeyword) {
+        await this.leadsService.toggleAi(lead.id, true);
+        this.logger.log(`✅ [ACTIVATE] IA reativada para ${phone} via WhatsApp (palavra: "${activationKeyword}")`);
+      } else if (conversation) {
+        await this.leadsService.saveMessage(conversation.id, 'outbound', 'operator', operatorText, messageId);
+        this.logger.log(`📥 [OP-WHATSAPP] ${phone}: ${operatorText.substring(0, 40)}`);
+      } else {
+        return;
+      }
+
+      const updatedLead = await this.leadsService.findOne(lead.id);
+      this.leadsGateway.emitLeadUpdated(updatedLead);
+    } catch (err) {
+      this.logger.error(`Erro ao processar msg do operador de ${phone}: ${err.message}`);
+    }
+  }
+
   @Post('uazapi')
   async handleUazapiWebhook(@Body() body: any) {
     this.logger.debug(`Webhook recebido — EventType="${body.EventType}", phone="${body.chat?.phone}", fromMe=${body.message?.fromMe}, wasSentByApi=${body.message?.wasSentByApi}, type="${body.message?.type}", text="${String(body.message?.text ?? '').substring(0, 40)}"`);
@@ -75,8 +118,17 @@ export class EvolutionController implements OnModuleInit {
 
     const message = body.message;
     if (!message) { this.logger.warn('Webhook ignorado — body sem message'); return { ok: true }; }
-    if (message.fromMe) { this.logger.debug(`Webhook ignorado — fromMe: ${message.messageid}`); return { ok: true }; }
     if (message.isGroup) { this.logger.debug(`Webhook ignorado — isGroup: ${message.messageid}`); return { ok: true }; }
+    // Mensagem enviada pelo próprio operador via WhatsApp (celular/Web), não pela API:
+    // - a palavra configurada em deactivationKeyword (padrão 'opa') desativa a IA daquele lead
+    // - a palavra configurada em activationKeyword (padrão 'volta') reativa a IA daquele lead
+    // - qualquer outra mensagem é salva como conversa do operador (sincroniza com o card)
+    // Só age sobre leads que JÁ existem — conversa pessoal/cuidador pelo celular não vira lead.
+    if (message.fromMe && !message.wasSentByApi) {
+      await this.handleOperatorMessage(body, message, instanceConfig);
+      return { ok: true };
+    }
+    if (message.fromMe) { this.logger.debug(`Webhook ignorado — fromMe: ${message.messageid}`); return { ok: true }; }
     if (message.wasSentByApi) { this.logger.debug(`Webhook ignorado — wasSentByApi: ${message.messageid}`); return { ok: true }; }
 
     const rawPhone: string = body.chat?.phone ?? '';

@@ -233,6 +233,14 @@ export class LeadsService implements OnApplicationBootstrap {
     return this.leadsRepo.save(lead);
   }
 
+  /** Busca lead + conversa pelo telefone SEM criar (usado nas mensagens do operador). */
+  async findExistingByPhone(phone: string): Promise<{ lead: Lead; conversation: Conversation | null } | null> {
+    const lead = await this.leadsRepo.findOne({ where: { phone } });
+    if (!lead) return null;
+    const conversation = await this.conversationsRepo.findOne({ where: { leadId: lead.id } });
+    return { lead, conversation };
+  }
+
   async getAiEnabled(leadId: string): Promise<boolean> {
     const conversation = await this.conversationsRepo.findOne({ where: { leadId } });
     return conversation?.aiEnabled ?? true;
